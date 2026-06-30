@@ -950,4 +950,4 @@ SWAGGER_PASSWORD=swagger123
 
 ## 许可证
 
-本项目为私有项目（MIT）,欢迎start & fork。
+本项目使用了MIT许可证,欢迎start & fork。
