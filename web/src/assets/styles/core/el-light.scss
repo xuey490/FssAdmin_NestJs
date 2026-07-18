@@ -19,8 +19,10 @@
     )
   ),
   $button: (
-    'hover-bg-color': var(--el-color-primary-light-9),
+    'bg-color': var(--el-color-primary-light-9),
+    'hover-bg-color': var(--el-color-primary-light-8),
     'hover-border-color': var(--el-color-primary),
+    'hover-text-color': var(--el-color-primary),
     'border-color': var(--el-color-primary),
     'text-color': var(--el-color-primary)
   ),

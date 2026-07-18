@@ -441,6 +441,11 @@ function useTableImpl<TApiFn extends (params: any) => Promise<any>>(
   // 智能防抖搜索函数
   const debouncedGetDataByPage = createSmartDebounce(getDataByPage, debounceTime)
 
+  /** 合并/覆盖搜索参数（不触发请求） */
+  const replaceSearchParams = (params: Partial<TParams>): void => {
+    Object.assign(searchParams, params)
+  }
+
   // 重置搜索参数
   const resetSearchParams = async (): Promise<void> => {
     // 取消防抖的搜索
@@ -691,6 +696,8 @@ function useTableImpl<TApiFn extends (params: any) => Promise<any>>(
     // 搜索相关 - 统一前缀
     /** 搜索参数 */
     searchParams,
+    /** 合并/覆盖搜索参数（不触发请求） */
+    replaceSearchParams,
     /** 重置搜索参数 */
     resetSearchParams,
 

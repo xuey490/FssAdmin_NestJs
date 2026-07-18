@@ -1,5 +1,5 @@
 ﻿<template>
-    <ArtPageReady variant="table">
+    
 <div class="art-full-height">
     <div class="box-border flex gap-4 h-full max-md:block max-md:gap-0 max-md:h-auto">
       <div class="flex-shrink-0 w-64 h-full max-md:w-full max-md:h-auto max-md:mb-5">
@@ -19,7 +19,7 @@
           </ElScrollbar>
         </ElCard>
       </div>
-
+      <ArtPageReady variant="table">
       <div class="flex flex-col flex-grow min-w-0">
         <!-- 搜索栏 -->
         <TableSearch v-model="searchForm" @search="handleSearch" @reset="handleReset" />
@@ -136,6 +136,7 @@
           </ArtTable>
         </ElCard>
       </div>
+      </ArtPageReady>
     </div>
     <!-- 表单弹窗 -->
     <EditDialog
@@ -158,7 +159,6 @@
       @success="refreshData"
     />
   </div>
-  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

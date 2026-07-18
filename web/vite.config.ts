@@ -113,7 +113,7 @@ export default ({ mode }: { mode: string }) => {
       AutoImport({
         imports: ['vue', 'vue-router', 'pinia', '@vueuse/core'],
         dts: 'src/types/import/auto-imports.d.ts',
-        resolvers: [ElementPlusResolver()],
+        resolvers: [ElementPlusResolver({ importStyle: 'sass' })],
         eslintrc: {
           enabled: true,
           filepath: './.auto-import.json',
@@ -122,7 +122,7 @@ export default ({ mode }: { mode: string }) => {
       }),
       Components({
         dts: 'src/types/import/components.d.ts',
-        resolvers: [ElementPlusResolver()]
+        resolvers: [ElementPlusResolver({ importStyle: 'sass' })]
       }),
       ElementPlus({ useSource: true }),
       viteCompression({
@@ -157,10 +157,19 @@ export default ({ mode }: { mode: string }) => {
     css: {
       preprocessorOptions: {
         scss: {
-          additionalData: `
-            @use "@styles/core/el-light.scss" as *; 
+          // 避免 additionalData 再注入到 el-light/mixin 自身造成循环 @use，导致 $button 主题未生效
+          additionalData: (content: string, filepath: string) => {
+            if (
+              filepath.replace(/\\/g, '/').includes('/styles/core/el-light.scss') ||
+              filepath.replace(/\\/g, '/').includes('/styles/core/mixin.scss')
+            ) {
+              return content
+            }
+            return `
+            @use "@styles/core/el-light.scss" as *;
             @use "@styles/core/mixin.scss" as *;
-          `
+            ${content}`
+          }
         }
       },
       postcss: {

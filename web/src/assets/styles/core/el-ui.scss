@@ -231,6 +231,20 @@ html.dark .el-card {
   }
 }
 
+// 默认按钮主题（对齐 el-light.scss $button）
+// EP 若走预编译 css / Sass @forward 未生效时，会退化成灰边白底；这里用更高优先级变量兜底
+.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info) {
+  --el-button-text-color: var(--el-color-primary);
+  --el-button-border-color: var(--el-color-primary);
+  --el-button-bg-color: var(--el-color-primary-light-9);
+  --el-button-hover-text-color: var(--el-color-primary);
+  --el-button-hover-border-color: var(--el-color-primary);
+  --el-button-hover-bg-color: var(--el-color-primary-light-8);
+  --el-button-active-text-color: var(--el-color-primary);
+  --el-button-active-border-color: var(--el-color-primary);
+  --el-button-active-bg-color: var(--el-color-primary-light-8);
+}
+
 // 修改el-button样式
 .el-button {
   &.el-button--text {

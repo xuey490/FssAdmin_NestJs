@@ -30,5 +30,8 @@ export * from './http'
 // 表单相关
 export * from './form'
 
+// 表格相关（含 renderTableOperationCell）
+export * from './table'
+
 // socket 相关
 export * from './socket'
