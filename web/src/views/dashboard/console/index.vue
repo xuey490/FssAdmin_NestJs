@@ -1,39 +1,40 @@
 <!-- 工作台页面 -->
 <template>
-  <div>
-    <template v-if="userInfo.dashboard === 'statistics' || !userInfo.dashboard">
-      <CardList></CardList>
+  <ArtPageReady variant="dashboard">
+    <div>
+      <template v-if="userInfo.dashboard === 'statistics' || !userInfo.dashboard">
+        <CardList></CardList>
 
-      <ElRow :gutter="20">
-        <ElCol :sm="24" :md="12" :lg="10">
-          <ActiveUser />
-        </ElCol>
-        <ElCol :sm="24" :md="12" :lg="14">
-          <SalesOverview />
-        </ElCol>
-      </ElRow>
-    </template>
+        <ElRow :gutter="20">
+          <ElCol :sm="24" :md="12" :lg="10">
+            <ActiveUser />
+          </ElCol>
+          <ElCol :sm="24" :md="12" :lg="14">
+            <SalesOverview />
+          </ElCol>
+        </ElRow>
+      </template>
 
-    <template v-if="userInfo.dashboard === 'work'">
-      <CardList></CardList>
-      <ElRow :gutter="20">
+      <template v-if="userInfo.dashboard === 'work'">
+        <CardList></CardList>
+        <ElRow :gutter="20">
+          <ElCol :sm="24" :md="24" :lg="12">
+            <NewUser />
+          </ElCol>
+          <ElCol :sm="24" :md="12" :lg="6">
+            <Dynamic />
+          </ElCol>
+          <ElCol :sm="24" :md="12" :lg="6">
+            <TodoList />
+          </ElCol>
+        </ElRow>
+      </template>
 
-        <ElCol :sm="24" :md="24" :lg="12">
-          <NewUser />
-        </ElCol>
-        <ElCol :sm="24" :md="12" :lg="6">
-          <Dynamic />
-        </ElCol>
-        <ElCol :sm="24" :md="12" :lg="6">
-          <TodoList />
-        </ElCol>
-      </ElRow>
-    </template>
+      <AboutProject />
 
-    <AboutProject />
-
-    <SponsorQrPopup />
-  </div>
+      <SponsorQrPopup />
+    </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

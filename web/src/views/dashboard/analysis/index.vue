@@ -1,39 +1,41 @@
 <!-- 分析页页面 -->
 <template>
-  <div>
-    <ElRow :gutter="20">
-      <ElCol :xl="14" :lg="15" :xs="24">
-        <TodaySales />
-      </ElCol>
-      <ElCol :xl="10" :lg="9" :xs="24">
-        <VisitorInsights />
-      </ElCol>
-    </ElRow>
+  <ArtPageReady variant="grid">
+    <div>
+      <ElRow :gutter="20">
+        <ElCol :xl="14" :lg="15" :xs="24">
+          <TodaySales />
+        </ElCol>
+        <ElCol :xl="10" :lg="9" :xs="24">
+          <VisitorInsights />
+        </ElCol>
+      </ElRow>
 
-    <ElRow :gutter="20">
-      <ElCol :xl="10" :lg="10" :xs="24">
-        <TotalRevenue />
-      </ElCol>
-      <ElCol :xl="7" :lg="7" :xs="24">
-        <CustomerSatisfaction />
-      </ElCol>
-      <ElCol :xl="7" :lg="7" :xs="24">
-        <TargetVsReality />
-      </ElCol>
-    </ElRow>
+      <ElRow :gutter="20">
+        <ElCol :xl="10" :lg="10" :xs="24">
+          <TotalRevenue />
+        </ElCol>
+        <ElCol :xl="7" :lg="7" :xs="24">
+          <CustomerSatisfaction />
+        </ElCol>
+        <ElCol :xl="7" :lg="7" :xs="24">
+          <TargetVsReality />
+        </ElCol>
+      </ElRow>
 
-    <ElRow :gutter="20">
-      <ElCol :xl="10" :lg="10" :xs="24">
-        <TopProducts />
-      </ElCol>
-      <ElCol :xl="7" :lg="7" :xs="24">
-        <SalesMappingByCountry />
-      </ElCol>
-      <ElCol :xl="7" :lg="7" :xs="24">
-        <VolumeServiceLevel />
-      </ElCol>
-    </ElRow>
-  </div>
+      <ElRow :gutter="20">
+        <ElCol :xl="10" :lg="10" :xs="24">
+          <TopProducts />
+        </ElCol>
+        <ElCol :xl="7" :lg="7" :xs="24">
+          <SalesMappingByCountry />
+        </ElCol>
+        <ElCol :xl="7" :lg="7" :xs="24">
+          <VolumeServiceLevel />
+        </ElCol>
+      </ElRow>
+    </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

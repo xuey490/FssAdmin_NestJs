@@ -1,5 +1,6 @@
-<template>
-  <div class="art-full-height">
+﻿<template>
+    <ArtPageReady variant="table">
+<div class="art-full-height">
     <!-- 搜索面板 -->
     <TableSearch
       v-model="searchForm"
@@ -84,6 +85,7 @@
       @success="refreshData"
     />
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

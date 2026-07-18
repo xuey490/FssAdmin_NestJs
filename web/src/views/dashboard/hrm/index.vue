@@ -1,4 +1,5 @@
 <template>
+  <ArtPageReady variant="dashboard">
   <div class="hrm-dashboard">
     <div class="art-card p-5 mb-5 max-sm:mb-4">
       <div class="flex-cb max-sm:block">
@@ -83,6 +84,7 @@
       </ArtTable>
     </div>
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

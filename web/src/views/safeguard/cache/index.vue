@@ -1,5 +1,6 @@
-<template>
-  <div class="page-content">
+﻿<template>
+    <ArtPageReady variant="grid">
+<div class="page-content">
     <el-row :gutter="20" class="browser-panels">
       <!-- 第一列：第一级键（前缀） -->
       <el-col :xs="24" :sm="24" :md="8" :lg="8" class="panel-col">
@@ -207,6 +208,7 @@
       </el-col>
     </el-row>
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

@@ -1,5 +1,6 @@
-<template>
-  <div class="art-full-height">
+﻿<template>
+    <ArtPageReady variant="table">
+<div class="art-full-height">
     <!-- 搜索面板 -->
     <TableSearch
       v-model="searchForm"
@@ -54,6 +55,7 @@
       </ArtTable>
     </ElCard>
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

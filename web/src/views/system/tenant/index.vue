@@ -1,5 +1,6 @@
-<template>
-  <div class="art-full-height">
+﻿<template>
+    <ArtPageReady variant="table">
+<div class="art-full-height">
     <TableSearch v-model="searchForm" @search="handleSearch" @reset="resetSearchParams" />
 
     <ElCard class="art-table-card" shadow="never">
@@ -54,6 +55,7 @@
       :tenant-name="currentTenant.tenant_name"
     />
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

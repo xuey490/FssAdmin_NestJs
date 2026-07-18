@@ -1,5 +1,6 @@
-<!-- 左右页面 -->
+﻿<!-- 左右页面 -->
 <template>
+  <ArtPageReady variant="table">
   <div class="art-full-height">
     <div class="box-border flex gap-4 h-full max-md:block max-md:gap-0 max-md:h-auto">
       <div class="flex-shrink-0 h-full max-md:w-full max-md:h-auto max-md:mb-5">
@@ -180,6 +181,7 @@
     <!-- 配置项管理 -->
     <ConfigList v-model="configVisible" :data="selectedRow" @success="getConfigData()" />
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

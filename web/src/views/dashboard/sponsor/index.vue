@@ -1,4 +1,5 @@
 <template>
+  <ArtPageReady variant="simple">
   <div class="sponsor-page">
     <div class="art-card p-6 max-sm:p-4 sponsor-page__card">
       <div class="sponsor-page__header">
@@ -52,6 +53,7 @@
       </div>
     </div>
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

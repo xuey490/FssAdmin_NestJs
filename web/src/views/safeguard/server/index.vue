@@ -1,5 +1,6 @@
-<template>
-  <div class="page-content mb-5">
+﻿<template>
+    <ArtPageReady variant="grid">
+<div class="page-content mb-5">
     <el-row :gutter="20">
       <!-- 内存 信息 -->
       <el-col :span="24" class="mb-4">
@@ -181,6 +182,7 @@
       </el-col>
     </el-row>
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

@@ -1,5 +1,6 @@
-<template>
-  <div class="art-full-height">
+﻿<template>
+    <ArtPageReady variant="table">
+<div class="art-full-height">
     <ElCard class="art-card-xs mt-0">
       <template #header>
         <div class="flex items-center justify-between">
@@ -140,6 +141,7 @@
       </template>
     </ElDialog>
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup lang="ts">

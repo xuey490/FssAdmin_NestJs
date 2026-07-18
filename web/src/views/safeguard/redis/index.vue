@@ -1,5 +1,6 @@
-<template>
-  <div class="redis-monitor">
+﻿<template>
+    <ArtPageReady variant="dashboard">
+<div class="redis-monitor">
     <!-- 第一行：核心指标卡片 -->
     <el-row :gutter="20" class="card-list mb-20">
       <el-col :sm="12" :md="6" :lg="6" v-for="item in coreMetrics" :key="item.title">
@@ -149,6 +150,7 @@
       <el-empty v-else description="暂无数据" />
     </el-card>
   </div>
+  </ArtPageReady>
 </template>
 
 <script setup>
