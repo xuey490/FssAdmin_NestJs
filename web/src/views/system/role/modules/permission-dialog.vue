@@ -66,19 +66,6 @@
   const isExpandAll = ref(true)
 
   /**
-   * 从树中收集所有叶子节点ID（没有 children 或 children 为空的节点）
-   */
-  function collectLeafIds(nodes: any[], ids: Set<number>) {
-    for (const node of nodes) {
-      if (!node.children || node.children.length === 0) {
-        ids.add(node.id)
-      } else {
-        collectLeafIds(node.children, ids)
-      }
-    }
-  }
-
-  /**
    * 弹窗显示状态双向绑定
    */
   const visible = computed({
@@ -108,15 +95,8 @@
     const data = await api.menuByRole({ id: props.data?.id })
     const menuIds: number[] = data.menus?.map((item: any) => item.id) || []
 
-    // 收集树中所有叶子节点ID
-    const leafIds = new Set<number>()
-    collectLeafIds(menuList.value, leafIds)
-
-    // 只对叶子节点回显，避免父子联动导致多选
-    const checkedLeafIds = menuIds.filter((id) => leafIds.has(id))
-
     await nextTick()
-    treeRef.value?.setCheckedKeys(checkedLeafIds, false)
+    treeRef.value?.setCheckedKeys(menuIds, false)
   }
 
   /**

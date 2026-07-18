@@ -410,6 +410,16 @@
       const data = await fetchSwitchTenant(nextTenantId)
 
       userStore.setToken(data.access_token, data.refresh_token)
+      // 先同步租户，避免后续请求仍带旧 X-Tenant-Id
+      const prevInfo = userStore.info || {}
+      userStore.setUserInfo({
+        ...prevInfo,
+        tenant: {
+          ...(prevInfo as { tenant?: Record<string, unknown> }).tenant,
+          id: data.tenant_id ?? nextTenantId,
+          name: data.tenant_name
+        }
+      } as Api.Auth.UserInfo)
       const userInfo = await fetchGetUserInfo()
       userStore.setUserInfo(userInfo)
       userStore.setLoginStatus(true)

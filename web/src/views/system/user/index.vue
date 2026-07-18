@@ -55,20 +55,28 @@
                 <el-avatar
                   :size="36"
                   :src="row.avatar || undefined"
-                  :style="row.avatar ? '' : userAvatarColor(row.realname || row.username || '?', row.id)"
+                  :style="
+                    row.avatar ? '' : userAvatarColor(row.realname || row.username || '?', row.id)
+                  "
                   class="flex-shrink-0"
                 >
                   {{ (row.realname || row.username || '?').charAt(0) }}
                 </el-avatar>
                 <div class="min-w-0">
                   <p class="text-sm font-medium text-gray-800 truncate">{{ row.username }}</p>
-                  <p v-if="row.email" class="text-xs text-gray-400 truncate mt-0.5">{{ row.email }}</p>
+                  <p v-if="row.email" class="text-xs text-gray-400 truncate mt-0.5">{{
+                    row.email
+                  }}</p>
                 </div>
               </div>
             </template>
             <!-- 操作列 -->
-            <template #operation="{ row }" >
-              <div class="flex gap-2" v-permission="'core:user:update'" v-if="row.id !== 1 && userStore.info.id !== row.id">
+            <template #operation="{ row }">
+              <div
+                class="flex gap-2"
+                v-permission="'core:user:update'"
+                v-if="row.id !== 1 && userStore.info.id !== row.id"
+              >
                 <SaButton
                   v-permission="'core:user:update'"
                   type="secondary"
@@ -86,16 +94,22 @@
                   />
                   <template #dropdown>
                     <ElDropdownMenu>
-                      <ElDropdownItem v-if="checkAuth('core:user:home')" @click="showWorkDialog('edit', row)">
+                      <ElDropdownItem
+                        v-if="checkAuth('core:user:home')"
+                        @click="showWorkDialog('edit', row)"
+                      >
                         <div class="flex-c gap-2">
                           <ArtSvgIcon icon="ri:home-office-line" />
                           <span>设置首页</span>
                         </div>
                       </ElDropdownItem>
-                      <ElDropdownItem v-if="checkAuth('core:user:password')" @click="handlePassword(row)">
+                      <ElDropdownItem
+                        v-if="checkAuth('core:user:password')"
+                        @click="handlePassword(row)"
+                      >
                         <div class="flex-c gap-2">
                           <ArtSvgIcon icon="ri:key-line" />
-                          <span>修改密码</span>
+                          <span>重置密码</span>
                         </div>
                       </ElDropdownItem>
                       <ElDropdownItem v-if="checkAuth('core:user:cache')" @click="handleCache(row)">
@@ -104,7 +118,10 @@
                           <span>清理缓存</span>
                         </div>
                       </ElDropdownItem>
-                      <ElDropdownItem v-if="checkAuth('core:user:menu')" @click="showAssignMenuDialog('edit', row)">
+                      <ElDropdownItem
+                        v-if="checkAuth('core:user:menu')"
+                        @click="showAssignMenuDialog('edit', row)"
+                      >
                         <div class="flex-c gap-2">
                           <ArtSvgIcon icon="ri:menu-line" />
                           <span>分配菜单</span>
@@ -160,8 +177,7 @@
   const treeData = ref([])
 
   // 编辑框
-  const { dialogType, dialogVisible, dialogData, showDialog, handleSelectionChange, deleteRow } =
-    useSaiAdmin()
+  const { dialogType, dialogVisible, dialogData, showDialog, handleSelectionChange } = useSaiAdmin()
 
   const {
     dialogType: workDialogType,
@@ -171,7 +187,6 @@
   } = useSaiAdmin()
 
   const {
-    dialogType: assignMenuDialogType,
     dialogVisible: assignMenuDialogVisible,
     dialogData: assignMenuDialogData,
     showDialog: showAssignMenuDialog
@@ -267,19 +282,19 @@
   }
 
   /**
-   * 修改密码
+   * 重置密码
    * @param row
    */
   const handlePassword = (row: any) => {
-    ElMessageBox.prompt('请输入新密码', '提示', {
+    ElMessageBox.prompt('请输入新密码', '重置密码', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       inputPattern: /^.{6,16}$/,
       inputErrorMessage: '密码长度在6到16之间',
       type: 'warning'
     }).then(({ value }) => {
-      api.changePassword({ id: row.id, password: value }).then(() => {
-        ElMessage.success('修改密码成功')
+      api.resetPassword(row.id, value).then(() => {
+        ElMessage.success('重置密码成功')
       })
     })
   }
@@ -309,12 +324,14 @@
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning'
-    }).then(() => {
-      api.delete(row.id).then(() => {
-        ElMessage.success('删除成功')
-        refreshData()
+    })
+      .then(() => {
+        api.delete(row.id).then(() => {
+          ElMessage.success('删除成功')
+          refreshData()
+        })
       })
-    }).catch(() => {})
+      .catch(() => {})
   }
 
   onMounted(() => {

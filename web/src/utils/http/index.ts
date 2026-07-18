@@ -71,6 +71,12 @@ axiosInstance.interceptors.request.use(
     const { accessToken } = useUserStore()
     if (accessToken) request.headers.set('Authorization', `Bearer ` + accessToken)
 
+    // 与 JWT.tenant_id 对齐；切换租户后避免残留旧 X-Tenant-Id 覆盖新 token
+    const store = useUserStore()
+    const tenantId = Number((store.info as { tenant?: { id?: number } })?.tenant?.id || 0)
+    if (tenantId > 0) request.headers.set('X-Tenant-Id', String(tenantId))
+    else request.headers.delete('X-Tenant-Id')
+
     if (request.data && !(request.data instanceof FormData) && !request.headers['Content-Type']) {
       request.headers.set('Content-Type', 'application/json')
       request.data = JSON.stringify(request.data)

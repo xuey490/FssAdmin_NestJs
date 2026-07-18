@@ -144,6 +144,12 @@ declare namespace Api {
         id: number
         name: string
       }[]
+      tenant?: {
+        id: number
+        name?: string
+        code?: string
+      }
+      is_admin?: boolean
     }
 
     // 基础项类型

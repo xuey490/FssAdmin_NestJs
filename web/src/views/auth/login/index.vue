@@ -197,7 +197,7 @@
   const formData = reactive({
     username: 'admin',
     password: '123456',
-    code: '1234',
+    code: '',
     uuid: '',
     tenant_id: undefined as number | undefined,
     rememberPassword: true

@@ -44,19 +44,19 @@
       <el-col :span="24" class="mb-4">
         <el-card class="art-table-card" shadow="never">
           <template #header>
-            <span class="text-lg font-medium">Node.js 及环境信息</span>
+            <span class="text-lg font-medium">环境信息</span>
           </template>
           <div class="py-2">
             <el-descriptions :column="2" border class="php-config" v-if="serverInfo.phpEnv">
               <el-descriptions-item
-                label="Node.js版本"
+                label="Python版本"
                 label-class-name="php-label"
                 content-class-name="php-content"
               >
                 {{ serverInfo.phpEnv?.php_version }}
               </el-descriptions-item>
               <el-descriptions-item
-                label="NestJS版本"
+                label="框架版本"
                 label-class-name="php-label"
                 content-class-name="php-content"
               >

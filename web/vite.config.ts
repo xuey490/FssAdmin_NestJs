@@ -38,6 +38,11 @@ export default ({ mode }: { mode: string }) => {
           changeOrigin: true,
           ws: true
         },
+        // 本地附件预览（FastAdmin 挂载 /uploads）
+        '/uploads': {
+          target: env.VITE_API_PROXY_URL,
+          changeOrigin: true
+        },
         '/ws': {
           target: env.VITE_API_PROXY_URL,
           ws: true,

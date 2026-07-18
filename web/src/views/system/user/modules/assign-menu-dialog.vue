@@ -60,19 +60,6 @@
     set: (val) => emit('update:modelValue', val)
   })
 
-  /**
-   * 从树中收集所有叶子节点ID（没有 children 或 children 为空的节点）
-   */
-  function collectLeafIds(nodes: any[], ids: Set<number>) {
-    for (const node of nodes) {
-      if (!node.children || node.children.length === 0) {
-        ids.add(node.id)
-      } else {
-        collectLeafIds(node.children, ids)
-      }
-    }
-  }
-
   async function handleOpen() {
     if (!props.data?.id) return
     loading.value = true
@@ -84,15 +71,8 @@
       menuTree.value = (treeRes as any) || []
       const menuIds: number[] = (menuIdsRes as any) || []
 
-      // 收集树中所有叶子节点ID
-      const leafIds = new Set<number>()
-      collectLeafIds(menuTree.value, leafIds)
-
-      // 只对叶子节点回显，避免父子联动导致多选
-      const checkedLeafIds = menuIds.filter((id) => leafIds.has(id))
-
       await nextTick()
-      treeRef.value?.setCheckedKeys(checkedLeafIds, false)
+      treeRef.value?.setCheckedKeys(menuIds, false)
     } finally {
       loading.value = false
     }
