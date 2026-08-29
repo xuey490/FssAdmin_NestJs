@@ -13,20 +13,38 @@
           <ElScrollbar :style="'height: 100%'">
             <div class="panel-section">
               <div class="section-title">基础信息</div>
-              <FaForm
+              <ElForm
                 ref="formRef"
-                v-model="formData"
-                :items="workflowBaseFormItems"
+                :model="formData"
                 :rules="formRules"
                 label-width="50px"
                 label-position="right"
                 size="small"
-                :span="24"
-                :gutter="12"
-                :show-reset="false"
-                :show-submit="false"
                 class="workflow-base-art-form"
-              />
+              >
+                <ElRow :gutter="12">
+                  <ElCol :span="24">
+                    <ElFormItem label="编码" prop="code">
+                      <ElInput v-model="formData.code" placeholder="请输入流程编码" />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="24">
+                    <ElFormItem label="名称" prop="name">
+                      <ElInput v-model="formData.name" placeholder="请输入流程名称" />
+                    </ElFormItem>
+                  </ElCol>
+                  <ElCol :span="24">
+                    <ElFormItem label="描述" prop="description">
+                      <ElInput
+                        v-model="formData.description"
+                        type="textarea"
+                        :rows="2"
+                        placeholder="请输入流程描述"
+                      />
+                    </ElFormItem>
+                  </ElCol>
+                </ElRow>
+              </ElForm>
             </div>
 
             <ElDivider :style="'margin: 4px 0'" />
@@ -184,7 +202,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, markRaw, type Component } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox, type FormInstance } from "element-plus";
 import { Panel, VueFlow, useVueFlow } from "@vue-flow/core";
 import { Background } from "@vue-flow/background";
 import { MiniMap } from "@vue-flow/minimap";
@@ -198,8 +216,8 @@ import "@vue-flow/controls/dist/style.css";
 import "@vue-flow/minimap/dist/style.css";
 
 import FaDynamicNode from "./FaDynamicNode.vue";
-import type { FormItem } from "@/components/forms/fa-form/index.vue";
-import type FaForm from "@/components/forms/fa-form/index.vue";
+import type { FormItem } from "@/components/core/forms/art-form/types";
+import type FaForm from "@/components/core/forms/art-form/index.vue";
 import WorkflowDefinitionAPI, {
   type WorkflowTable,
   type WorkflowForm,
@@ -225,7 +243,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits(["update:visible", "refresh"]);
 
-const formRef = ref<InstanceType<typeof FaForm> | null>(null);
+const formRef = ref<FormInstance | null>(null);
 const workflowId = ref<number>();
 
 const formData = ref<Partial<WorkflowForm>>({
@@ -501,8 +519,8 @@ const loadNodeTypes = async () => {
   loading.value = true;
   try {
     const res = await WorkflowNodeTypeAPI.getWorkflowNodeTypeOptions();
-    if (res.data && res.data.data) {
-      allNodes.value = res.data.data.map((nodeType: any) => ({
+    if (res && res.length > 0) {
+      allNodes.value = res.map((nodeType: any) => ({
         id: nodeType.id,
         type: nodeType.code,
         name: nodeType.name,
@@ -512,7 +530,7 @@ const loadNodeTypes = async () => {
       }));
 
       const newTypes: Record<string, Component> = {};
-      res.data.data.forEach((nodeType: any) => {
+      res.forEach((nodeType: any) => {
         newTypes[nodeType.code] = markRaw(FaDynamicNode);
       });
 
@@ -535,9 +553,9 @@ onInit((vueFlowInstance) => {
     (async () => {
       try {
         const res = await WorkflowDefinitionAPI.getWorkflowDetail(workflowId.value!);
-        if (res.data && res.data.data) {
-          nodes.value = res.data.data.nodes || [];
-          edges.value = res.data.data.edges || [];
+        if (res) {
+          nodes.value = res.nodes || [];
+          edges.value = res.edges || [];
           saveToHistory(nodes.value as Node[], edges.value as Edge[]);
         }
       } catch {
@@ -730,8 +748,8 @@ function handleSave() {
   } else {
     return (async () => {
       const res = await WorkflowDefinitionAPI.createWorkflow(saveData as WorkflowForm);
-      if (res.data && res.data.data) {
-        workflowId.value = res.data.data.id;
+      if (res) {
+        workflowId.value = res.id;
       }
     })();
   }
@@ -767,7 +785,7 @@ const handleFinish = async () => {
   if (!formRef.value) return;
 
   try {
-    await formRef.value.validate?.();
+    await formRef.value?.validate();
     await handleValidate();
     await handleSave();
     emit("refresh");

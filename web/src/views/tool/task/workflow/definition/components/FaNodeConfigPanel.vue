@@ -8,7 +8,7 @@
     </div>
 
     <ElScrollbar class="panel-content" view-class="p-4">
-      <FaForm
+      <ArtForm
         v-model="formData"
         :items="nodePanelFormItems"
         label-width="80px"
@@ -45,7 +45,7 @@
             <div class="field-hint">JSON 格式的关键字参数</div>
           </div>
         </template>
-      </FaForm>
+      </ArtForm>
 
       <div class="panel-actions">
         <ElButton type="primary" size="small" @click="handleSave">保存</ElButton>
@@ -67,7 +67,7 @@ import {
   ElScrollbar,
 } from "element-plus";
 import { Close } from "@element-plus/icons-vue";
-import type { FormItem } from "@/components/forms/fa-form/index.vue";
+import type { FormItem } from "@/components/core/forms/art-form/types";
 import WorkflowNodeTypeAPI, {
   type WorkflowNodeTypeOption,
 } from "@/api/module_task/workflow/node-type";
@@ -137,8 +137,8 @@ const nodePanelFormItems = computed<FormItem[]>(() => [
 const loadNodeTypes = async () => {
   try {
     const res = await WorkflowNodeTypeAPI.getWorkflowNodeTypeOptions();
-    if (res.data) {
-      nodeTypes.value = res.data.data || [];
+    if (res) {
+      nodeTypes.value = res || [];
     }
   } catch {
     ElMessage.error("加载节点类型失败");
@@ -146,7 +146,7 @@ const loadNodeTypes = async () => {
 };
 
 const handleTypeChange = async (typeCode: string) => {
-  const nodeType = nodeTypes.value.find((t) => t.code === typeCode);
+  const nodeType = nodeTypes.value.find((t: WorkflowNodeTypeOption) => t.code === typeCode);
   if (nodeType) {
     formData.value.args = nodeType.args || "";
     formData.value.kwargsStr = nodeType.kwargs || "{}";

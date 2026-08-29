@@ -1,7 +1,7 @@
 <!-- 工作流定义：Art + useTable -->
 <template>
   <div class="fa-full-height">
-    <FaSearchBar
+    <ArtSearchBar
       v-show="showSearchBar"
       ref="searchBarRef"
       v-model="searchForm"
@@ -19,26 +19,38 @@
     />
 
     <ElCard class="fa-table-card" :style="{ 'margin-top': showSearchBar ? '12px' : '0' }">
-      <FaTableHeader
+      <ArtTableHeader
         v-model:columns="columnChecks"
         v-model:showSearchBar="showSearchBar"
         :loading="loading"
         @refresh="refreshData"
       >
         <template #left>
-          <FaTableHeaderLeft
-            :remove-ids="selectedIds"
-            :perm-create="['module_task:workflow:definition:create']"
-            :perm-delete="['module_task:workflow:definition:delete']"
-            :delete-loading="batchDeleting"
-            :create-loading="createLoading"
-            @add="handleAdd"
-            @delete="handleBatchDelete"
-          />
+          <ElSpace wrap>
+            <ElButton
+              v-permission="'module_task:workflow:definition:create'"
+              type="primary"
+              :loading="createLoading"
+              @click="handleAdd"
+            >
+              <template #icon><ArtSvgIcon icon="ri:add-fill" /></template>
+              新增
+            </ElButton>
+            <ElButton
+              v-permission="'module_task:workflow:definition:delete'"
+              type="danger"
+              plain
+              :disabled="selectedIds.length === 0"
+              :loading="batchDeleting"
+              @click="handleBatchDelete"
+            >
+              批量删除
+            </ElButton>
+          </ElSpace>
         </template>
-      </FaTableHeader>
+      </ArtTableHeader>
 
-      <FaTable
+      <ArtTable
         ref="faTableRef"
         row-key="id"
         :loading="loading"
@@ -48,8 +60,7 @@
         @selection-change="onTableSelectionChange"
         @pagination:size-change="handleSizeChange"
         @pagination:current-change="handleCurrentChange"
-      >
-      </FaTable>
+      />
     </ElCard>
 
     <FaWorkflowDesignDrawer
@@ -67,8 +78,9 @@ defineOptions({
 });
 
 import WorkflowDefinitionAPI, { type WorkflowTable } from "@/api/module_task/workflow/definition";
-import type { SearchFormItem } from "@/components/forms/fa-search-bar/index.vue";
-import type FaSearchBar from "@/components/forms/fa-search-bar/index.vue";
+import type { SearchFormItem } from "@/components/core/forms/art-search-bar/types";
+import type FaSearchBar from "@/components/core/forms/art-search-bar/index.vue";
+import { ElForm, type FormInstance } from "element-plus";
 import FaWorkflowDesignDrawer from "./components/FaWorkflowDesignDrawer.vue";
 import { useTable } from "@/hooks/core/useTable";
 import type { ColumnOption } from "@/types/component";
@@ -102,7 +114,7 @@ const searchForm = ref<WorkflowSearchForm>({
 });
 
 const showSearchBar = ref(true);
-const searchBarRef = ref<InstanceType<typeof FaSearchBar> | null>(null);
+const searchBarRef = ref<FormInstance | null>(null);
 const searchBarRules: Record<string, unknown> = {};
 
 const workflowSearchItems = computed<SearchFormItem[]>(() => [
@@ -142,7 +154,9 @@ const workflowSearchItems = computed<SearchFormItem[]>(() => [
 const faTableRef = ref<{ elTableRef?: { clearSelection: () => void } } | null>(null);
 const selectedRows = ref<WorkflowTable[]>([]);
 const selectedIds = computed(() =>
-  selectedRows.value.map((r) => r.id).filter((id): id is number => typeof id === "number")
+  selectedRows.value
+    .map((r: WorkflowTable) => r.id)
+    .filter((id: number | undefined): id is number => typeof id === "number")
 );
 const batchDeleting = ref(false);
 const createLoading = ref(false);
@@ -307,9 +321,9 @@ const {
   },
 });
 
-async function handleSearchBarSearch(params: WorkflowSearchForm) {
-  await searchBarRef.value?.validate?.();
-  replaceSearchParams(buildWorkflowReplaceParams(params));
+async function handleSearchBarSearch() {
+  await searchBarRef.value?.validate();
+  replaceSearchParams(buildWorkflowReplaceParams(searchForm.value));
   getData();
 }
 
@@ -382,9 +396,8 @@ async function handleExecute(action: string, record: WorkflowTable) {
       workflow_id: record.id,
       variables: {},
     });
-    if (res.data?.data) {
-      const result = res.data.data;
-      ElMessage.success(`工作流执行${result.status === 0 ? "成功" : "失败"}`);
+    if (res) {
+      ElMessage.success(`工作流执行${res.status === 0 ? "成功" : "失败"}`);
     }
     await refreshUpdate();
   } catch {

@@ -8,7 +8,7 @@
     </div>
 
     <ElScrollbar class="panel-content" view-class="p-4">
-      <FaForm
+      <ArtForm
         v-model="formData"
         :items="edgeFormItems"
         label-width="80px"
@@ -23,7 +23,7 @@
         <template #color>
           <ElColorPicker v-model="formData.color" />
         </template>
-      </FaForm>
+      </ArtForm>
 
       <div class="panel-actions">
         <ElButton type="primary" size="small" @click="handleSave">保存</ElButton>

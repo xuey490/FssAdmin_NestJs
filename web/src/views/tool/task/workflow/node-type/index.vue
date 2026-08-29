@@ -1,7 +1,7 @@
 <!-- 工作流节点类型：ElSplitter + Codemirror -->
 <template>
   <div class="fa-full-height">
-    <FaSearchBar
+    <ArtSearchBar
       v-show="showSearchBar"
       ref="searchBarRef"
       v-model="searchForm"
@@ -19,26 +19,38 @@
     />
 
     <ElCard class="fa-table-card" :style="{ 'margin-top': showSearchBar ? '12px' : '0' }">
-      <FaTableHeader
+      <ArtTableHeader
         v-model:columns="columnChecks"
         v-model:showSearchBar="showSearchBar"
         :loading="loading"
         @refresh="refreshData"
       >
         <template #left>
-          <FaTableHeaderLeft
-            :remove-ids="selectedIds"
-            :perm-create="['module_task:workflow:node-type:create']"
-            :perm-delete="['module_task:workflow:node-type:delete']"
-            :delete-loading="batchDeleting"
-            :create-loading="createLoading"
-            @add="handleAdd"
-            @delete="handleBatchDelete"
-          />
+          <ElSpace wrap>
+            <ElButton
+              v-permission="'module_task:workflow:node-type:create'"
+              type="primary"
+              :loading="createLoading"
+              @click="handleAdd"
+            >
+              <template #icon><ArtSvgIcon icon="ri:add-fill" /></template>
+              新增
+            </ElButton>
+            <ElButton
+              v-permission="'module_task:workflow:node-type:delete'"
+              type="danger"
+              plain
+              :disabled="selectedIds.length === 0"
+              :loading="batchDeleting"
+              @click="handleBatchDelete"
+            >
+              批量删除
+            </ElButton>
+          </ElSpace>
         </template>
-      </FaTableHeader>
+      </ArtTableHeader>
 
-      <FaTable
+      <ArtTable
         ref="faTableRef"
         row-key="id"
         :loading="loading"
@@ -51,7 +63,7 @@
       />
     </ElCard>
 
-    <FaDialog
+    <ElDialog
       v-model="dialogVisible"
       :title="dialogTitle"
       width="1000px"
@@ -62,58 +74,102 @@
       <ElSplitter direction="horizontal" :style="'height: 500px'">
         <ElSplitterPanel size="320px" :min="240" :max="420">
           <ElScrollbar :style="'height: 100%'">
-            <FaForm
+            <ElForm
               :key="nodeTypeFormRenderKey"
               ref="formRef"
-              v-model="formData"
-              :items="nodeTypeDialogFormItems"
+              :model="formData"
               :rules="rules"
               label-suffix=":"
               label-width="85px"
-              :span="24"
-              :gutter="16"
-              :show-reset="false"
-              :show-submit="false"
               class="crud-dialog-art-form node-splitter-art-form"
             >
-              <template #args>
-                <div class="dynamic-params">
-                  <div v-for="(_item, index) in argsList" :key="index" class="param-item">
-                    <ElInput v-model="argsList[index]" placeholder="参数值" />
-                    <ElButton
-                      type="danger"
-                      icon="Delete"
-                      circle
-                      @click="argsList.splice(index, 1)"
+              <ElRow :gutter="16">
+                <ElCol :span="24">
+                  <ElFormItem label="名称" prop="name">
+                    <ElInput v-model="formData.name" :maxlength="128" show-word-limit />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="24">
+                  <ElFormItem label="编码" prop="code">
+                    <ElInput
+                      v-model="formData.code"
+                      :maxlength="64"
+                      show-word-limit
+                      :disabled="!!editingId"
                     />
-                  </div>
-                  <ElButton type="primary" icon="Plus" @click="argsList.push('')">
-                    添加位置参数
-                  </ElButton>
-                </div>
-              </template>
-              <template #kwargs>
-                <div class="dynamic-params">
-                  <div v-for="(item, index) in kwargsList" :key="index" class="param-item">
-                    <ElInput v-model="item.key" placeholder="键" />
-                    <ElInput v-model="item.value" placeholder="值" />
-                    <ElButton
-                      type="danger"
-                      icon="Delete"
-                      circle
-                      @click="kwargsList.splice(index, 1)"
-                    />
-                  </div>
-                  <ElButton
-                    type="primary"
-                    icon="Plus"
-                    @click="kwargsList.push({ key: '', value: '' })"
-                  >
-                    添加关键词参数
-                  </ElButton>
-                </div>
-              </template>
-            </FaForm>
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="24">
+                  <ElFormItem label="分类" prop="category">
+                    <ElSelect v-model="formData.category" :style="{ width: '100%' }">
+                      <ElOption label="触发器" value="trigger" />
+                      <ElOption label="动作" value="action" />
+                      <ElOption label="条件" value="condition" />
+                      <ElOption label="控制" value="control" />
+                    </ElSelect>
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="24">
+                  <ElFormItem label="位置参数">
+                    <div class="dynamic-params">
+                      <div
+                        v-for="(_item, index) in argsList"
+                        :key="index"
+                        class="param-item"
+                      >
+                        <ElInput v-model="argsList[index]" placeholder="参数值" />
+                        <ElButton
+                          type="danger"
+                          icon="Delete"
+                          circle
+                          @click="argsList.splice(index, 1)"
+                        />
+                      </div>
+                      <ElButton type="primary" icon="Plus" @click="argsList.push('')">
+                        添加位置参数
+                      </ElButton>
+                    </div>
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="24">
+                  <ElFormItem label="关键字参数">
+                    <div class="dynamic-params">
+                      <div
+                        v-for="(item, index) in kwargsList"
+                        :key="index"
+                        class="param-item"
+                      >
+                        <ElInput v-model="item.key" placeholder="键" />
+                        <ElInput v-model="item.value" placeholder="值" />
+                        <ElButton
+                          type="danger"
+                          icon="Delete"
+                          circle
+                          @click="kwargsList.splice(index, 1)"
+                        />
+                      </div>
+                      <ElButton
+                        type="primary"
+                        icon="Plus"
+                        @click="kwargsList.push({ key: '', value: '' })"
+                      >
+                        添加关键词参数
+                      </ElButton>
+                    </div>
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="24">
+                  <ElFormItem label="排序" prop="sort_order">
+                    <ElInputNumber v-model="formData.sort_order" :min="0" />
+                  </ElFormItem>
+                </ElCol>
+                <ElCol :span="24">
+                  <ElFormItem label="启用" prop="is_active">
+                    <ElSwitch v-model="formData.is_active" />
+                  </ElFormItem>
+                </ElCol>
+              </ElRow>
+            </ElForm>
           </ElScrollbar>
         </ElSplitterPanel>
 
@@ -141,7 +197,7 @@
           <ElButton type="primary" :loading="submitting" @click="submitForm">保存</ElButton>
         </div>
       </template>
-    </FaDialog>
+    </ElDialog>
   </div>
 </template>
 
@@ -155,10 +211,11 @@ import WorkflowNodeTypeAPI, {
   type WorkflowNodeTypeForm,
   type WorkflowNodeTypeTable,
 } from "@/api/module_task/workflow/node-type";
-import type { SearchFormItem } from "@/components/forms/fa-search-bar/index.vue";
-import type FaSearchBar from "@/components/forms/fa-search-bar/index.vue";
-import type { FormItem } from "@/components/forms/fa-form/index.vue";
-import type FaForm from "@/components/forms/fa-form/index.vue";
+import type { SearchFormItem } from "@/components/core/forms/art-search-bar/types";
+import type FaSearchBar from "@/components/core/forms/art-search-bar/index.vue";
+import type { FormItem } from "@/components/core/forms/art-form/types";
+import type FaForm from "@/components/core/forms/art-form/index.vue";
+import { ElForm, ElFormItem, ElInput, ElInputNumber, ElSelect, ElOption, ElSwitch, ElCol, ElRow, ElDialog, type FormInstance } from "element-plus";
 import { useAuth } from "@/hooks/core/useAuth";
 import { useTableSelection } from "@/hooks/core/useTableSelection";
 import { confirmDelete, confirmBatchDelete } from "@/hooks/core/useConfirm";
@@ -196,7 +253,7 @@ const searchForm = ref<NodeTypeSearchForm>({
 });
 
 const showSearchBar = ref(true);
-const searchBarRef = ref<InstanceType<typeof FaSearchBar> | null>(null);
+const searchBarRef = ref<FormInstance | null>(null);
 const searchBarRules: Record<string, unknown> = {};
 
 const nodeTypeSearchItems = computed<SearchFormItem[]>(() => [
@@ -417,9 +474,9 @@ const {
   },
 });
 
-async function handleSearchBarSearch(params: NodeTypeSearchForm) {
-  await searchBarRef.value?.validate?.();
-  replaceSearchParams(buildNodeTypeReplaceParams(params));
+async function handleSearchBarSearch() {
+  await searchBarRef.value?.validate();
+  replaceSearchParams(buildNodeTypeReplaceParams(searchForm.value));
   getData();
 }
 
@@ -453,7 +510,7 @@ const dialogVisible = ref(false);
 const dialogTitle = ref("新增节点类型");
 const editingId = ref<number | null>(null);
 const submitting = ref(false);
-const formRef = ref<InstanceType<typeof FaForm> | null>(null);
+const formRef = ref<FormInstance | null>(null);
 const nodeTypeFormRenderKey = ref(0);
 
 const defaultForm = (): WorkflowNodeTypeForm => ({
@@ -582,7 +639,7 @@ async function openDialog(id?: number) {
   if (id) {
     try {
       const res = await WorkflowNodeTypeAPI.getWorkflowNodeTypeDetail(id);
-      const d = res.data?.data as WorkflowNodeTypeTable | undefined;
+      const d = res as WorkflowNodeTypeTable | undefined;
       if (d) {
         formData.value.name = d.name || "";
         formData.value.code = d.code || "";

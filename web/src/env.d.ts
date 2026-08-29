@@ -14,6 +14,13 @@ declare module 'vue-img-cutter'
 
 declare module 'file-saver'
 
+declare module 'vue3-cron-plus' {
+  import type { DefineComponent } from 'vue'
+  export const vue3CronPlus: DefineComponent<Record<string, unknown>, Record<string, unknown>, unknown>
+  const _default: DefineComponent<Record<string, unknown>, Record<string, unknown>, unknown>
+  export default _default
+}
+
 declare module '@/components/flow/designer/api'
 declare module '@wangeditor/editor-for-vue' {
   export const Editor: any
