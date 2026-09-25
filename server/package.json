@@ -230,6 +230,42 @@
         "lines": 100,
         "statements": 100
       },
+      "**/memory-monitor.interceptor.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "**/readonly-mode.guard.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "**/llm-semaphore.service.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "**/export.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "**/file-log.sink.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "**/log-query.service.ts": {
+        "branches": 94,
+        "functions": 100,
+        "lines": 97,
+        "statements": 97
+      },
       "**/chunk-merge.util.ts": {
         "branches": 100,
         "functions": 100,

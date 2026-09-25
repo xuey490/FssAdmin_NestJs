@@ -305,6 +305,19 @@ describe('ExportTable', () => {
       expect(String(sheet?.getCell('A2').value)).toBe('王五');
     });
 
+    it('表头既无 dataIndex 也无 key 时列键回落为空字符串', async () => {
+      const { res, end } = createMinimalResponse();
+
+      await ExportTable({ data: [{ x: 1 }], header: [{ title: '列' }], mode: 'buffer' }, res);
+
+      const buffer = (end.mock.calls[0] as unknown as [Buffer])[0] as unknown as Buffer;
+      const sheet = await readSheet(buffer, 'Sheet1');
+
+      expect(String(sheet?.getCell('A1').value)).toBe('列');
+      // 未声明取值键时该列不应写入数据
+      expect(sheet?.getCell('A2').value ?? null).toBeNull();
+    });
+
     it('表头缺少 title/header 时使用空字符串', async () => {
       const { res, end } = createMinimalResponse();
 

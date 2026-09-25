@@ -179,9 +179,12 @@ describe('FileLogSink', () => {
       expect(fs.existsSync(recent)).toBe(true);
     });
 
-    it('日志目录不存在时静默跳过', async () => {
-      const missingDir = path.join(logDir, 'not-exist');
-      const sink = new FileLogSink(createConfig({ 'log.dir': missingDir, 'log.retentionDays': 30 }));
+    it('日志目录不存在（ENOENT）时静默跳过', async () => {
+      const sink = new FileLogSink(createConfig({ 'log.dir': logDir, 'log.retentionDays': 30 }));
+      // 模拟日志根目录被移除：readdir 抛 ENOENT 应被静默忽略
+      jest
+        .spyOn(realFsp, 'readdir')
+        .mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
 
       await expect(sink.write(createRecord('2026-09-25T14:30:00.000Z'))).resolves.toBeUndefined();
       await flush();
