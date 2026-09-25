@@ -442,7 +442,19 @@ export class LogQueryService {
     }
   }
 
+  /**
+   * 判断是否为“文件不存在”错误。
+   * 不使用 `error instanceof Error`：跨 realm（如 jest 的 vm 运行环境）下该判断会失效，
+   * 导致 ENOENT 被误判为致命错误。这里只依赖错误码，保证任何环境下行为一致。
+   * @param error 待判断的错误
+   * @returns 是否为 ENOENT
+   */
   private isNotFoundError(error: unknown): boolean {
-    return error instanceof Error && 'code' in error && error.code === 'ENOENT';
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === 'ENOENT'
+    );
   }
 }

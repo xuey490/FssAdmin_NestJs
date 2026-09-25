@@ -224,6 +224,12 @@
         "lines": 100,
         "statements": 100
       },
+      "**/memory-monitor.service.ts": {
+        "branches": 97,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
       "**/chunk-merge.util.ts": {
         "branches": 100,
         "functions": 100,
