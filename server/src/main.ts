@@ -70,6 +70,17 @@ async function bootstrap(): Promise<void> {
     const port = configService.get<number>('app.port', 3000);
     const globalPrefix = configService.get<string>('app.apiPrefix', '');
     const displayPrefix = 'api';
+    const readonlyMode = configService.get<boolean>('app.readonly', false);
+    const readonlySource = configService.get<string>('app.readonlySource', 'READONLY_MODE');
+    const debugEnabled = configService.get<boolean>('app.debug', false);
+
+    // 未显式配置 READONLY_MODE 时提示迁移（当前只读判定仍依赖 DEBUG 兼容回落）
+    if (readonlySource !== 'READONLY_MODE') {
+      const tip =
+        '未配置 READONLY_MODE，只读模式按兼容规则回落为 DEBUG=false 推导；建议显式设置 READONLY_MODE=true/false 解除耦合';
+      fallbackLogger.warn(tip);
+      appLogger?.warn({ category: 'system.config', message: tip, source: 'bootstrap' });
+    }
 
     // 信任反向代理，正确获取客户端真实 IP
     app.set('trust proxy', 1);
@@ -125,7 +136,12 @@ async function bootstrap(): Promise<void> {
     });
     // SPA 路由回退：非 API 路径且非带扩展名的静态文件 => 返回 index.html
     app.use((req, res, next) => {
-      if (req.path.startsWith('/api/') || req.path.startsWith('/profile/') || req.path.startsWith('/public/') || req.path.startsWith('/api-test/')) {
+      if (
+        req.path.startsWith('/api/') ||
+        req.path.startsWith('/profile/') ||
+        req.path.startsWith('/public/') ||
+        req.path.startsWith('/api-test/')
+      ) {
         return next();
       }
       // 带文件扩展名的请求放行（静态文件已由上方 useStaticAssets 处理）
@@ -172,7 +188,10 @@ async function bootstrap(): Promise<void> {
     const swaggerEnabled = configService.get<boolean>('swagger.enabled', false);
     if (swaggerEnabled) {
       const swaggerTitle = configService.get<string>('swagger.title', 'FssAdmin');
-      const swaggerDescription = configService.get<string>('swagger.description', 'FssAdmin API 文档');
+      const swaggerDescription = configService.get<string>(
+        'swagger.description',
+        'FssAdmin API 文档',
+      );
       const swaggerVersion = configService.get<string>('swagger.version', '1.0.0');
       const swaggerUsername = configService.get<string>('swagger.username', '');
       const swaggerPassword = configService.get<string>('swagger.password', '');
@@ -203,10 +222,7 @@ async function bootstrap(): Promise<void> {
         if (!existsSync(publicDir)) {
           mkdirSync(publicDir, { recursive: true });
         }
-        writeFileSync(
-          path.join(publicDir, 'openApi.json'),
-          JSON.stringify(document, null, 2),
-        );
+        writeFileSync(path.join(publicDir, 'openApi.json'), JSON.stringify(document, null, 2));
       }
 
       // Swagger Basic Auth 保护
@@ -253,6 +269,9 @@ async function bootstrap(): Promise<void> {
         env,
         port,
         displayPrefix,
+        readonly: readonlyMode,
+        readonlySource,
+        debug: debugEnabled,
         workerId: shouldUseCluster ? cluster.worker?.id : undefined,
         pid: process.pid,
         url: `http://localhost:${port}/${displayPrefix}`,
@@ -271,6 +290,10 @@ async function bootstrap(): Promise<void> {
         `  Swagger: http://localhost:${port}/${displayPrefix}/swagger-ui/`,
         '\n',
         `  WebSocket: ${wsUrl}  (与 HTTP 同端口，无需单独启动)`,
+        '\n',
+        `  运行模式: ${readonlyMode ? '只读(演示) —— 禁止写操作' : '正常(可读写)'}  [来源: ${readonlySource}]`,
+        '\n',
+        `  调试模式: ${debugEnabled ? '开(日志级别=LOG_LEVEL)' : '关(日志级别=LOG_PROD_LEVEL)'}`,
       );
     }
   } catch (error) {

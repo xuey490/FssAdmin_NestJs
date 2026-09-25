@@ -277,9 +277,39 @@ export class LogQueryService {
     let scannedLines = initialScannedLines;
     let parseErrors = 0;
 
-    for await (const line of reader) {
-      lineNumber += 1;
-      lines.push({ line, lineNumber });
+    // 首轮读取即施加行数上限，避免把整个日志文件的所有行读进内存：
+    // - 正序：只保留前 N 行，读满即停止读取
+    // - 倒序：只保留最后 N 行（环形窗口覆盖），保证仍是"最新优先"且内存有界
+    const remainingBudget = Math.max(0, MAX_SCANNED_LINES - initialScannedLines);
+
+    if (bounds.order === 'desc') {
+      const ring: Array<{ line: string; lineNumber: number }> = [];
+
+      for await (const line of reader) {
+        lineNumber += 1;
+        if (remainingBudget === 0) {
+          break;
+        }
+
+        const item = { line, lineNumber };
+        if (ring.length < remainingBudget) {
+          ring.push(item);
+        } else {
+          ring[(lineNumber - 1) % remainingBudget] = item;
+        }
+      }
+
+      ring.sort((a, b) => a.lineNumber - b.lineNumber);
+      lines.push(...ring);
+    } else {
+      for await (const line of reader) {
+        if (lines.length >= remainingBudget) {
+          break;
+        }
+
+        lineNumber += 1;
+        lines.push({ line, lineNumber });
+      }
     }
 
     if (bounds.order === 'desc') {

@@ -4,6 +4,7 @@ import type { Response } from 'express-serve-static-core';
 import { ResultData } from '../../../common/utils/result';
 import { TaixuDocumentDeleteDto, TaixuDocumentDownloadDto, TaixuDocumentIndexStatusDto, TaixuDocumentPageDto, TaixuDocumentPreviewDto, TaixuDocumentReindexDto, TaixuDocumentWebsiteDto } from './dto';
 import { TaixuDocumentService } from './taixu-document.service';
+import { UPLOAD_TEMP_DIR } from '../../upload/utils/disk-upload.util';
 
 @Controller('api/taixu/document')
 export class TaixuDocumentController {
@@ -29,7 +30,8 @@ export class TaixuDocumentController {
   }
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  // 磁盘落盘：文档可能较大，避免整份文件驻留内存（服务层会移动到正式目录）
+  @UseInterceptors(FileInterceptor('file', { dest: UPLOAD_TEMP_DIR }))
   async upload(@UploadedFile() file: Express.Multer.File) {
     if (!file) return ResultData.fail(500, '没有上传任何文件');
     const result = await this.documentService.uploadFile(file);
@@ -97,7 +99,8 @@ export class TaixuDocumentController {
 
   @Post('download')
   async download(@Body() body: TaixuDocumentDownloadDto, @Res() res: Response) {
-    const { filePath } = await this.documentService.loadRawFile(body.documentName);
+    // 只解析路径，文件由 res.download 流式发送，避免整份读入内存
+    const filePath = await this.documentService.resolveDocumentPath(body.documentName);
     res.download(filePath, body.documentName);
   }
 }

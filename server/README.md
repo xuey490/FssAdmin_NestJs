@@ -26,6 +26,8 @@
 - [PM2 生产部署](#pm2-生产部署)
 - [API 文档](#api-文档)
 - [日志系统](#日志系统)
+- [只读 / 演示模式](#只读--演示模式)
+- [内存与堆快照](#内存与堆快照)
 - [API 自动验证](#api-自动验证)
 - [数据库迁移](#数据库迁移)
 - [监控与告警](#监控与告警)
@@ -122,7 +124,7 @@
 - 全局参数清洗（whitelist + transform）
 - 操作日志审计（拦截器）
 - 多租户数据隔离（拦截器）
-- 只读模式（DEBUG=false 时禁止写操作）
+- 只读模式（READONLY_MODE=true 时禁止写操作；未配置时兼容回落为 DEBUG=false）
 
 ---
 
@@ -145,7 +147,7 @@ server1/
 │   │   ├── entities/              # 基础实体
 │   │   ├── enum/                  # 通用枚举
 │   │   ├── filters/               # 全局异常过滤器
-│   │   ├── guards/                # 全局守卫（debug、auth、roles、permission）
+│   │   ├── guards/                # 全局守卫（readonly-mode、auth、roles、permission）
 │   │   ├── interceptor/           # 拦截器（security、operlog、tenant、memory-monitor）
 │   │   ├── services/              # 公共服务（敏感词）
 │   │   ├── subscriber/            # TypeORM 订阅器（审计日志）
@@ -355,7 +357,8 @@ server1/
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `NODE_ENV` | `development` | 运行环境 |
-| `DEBUG` | `true` | `false` 时进入只读模式 |
+| `DEBUG` | `true` | 调试模式：日志级别与自动堆快照默认值（与写权限无关） |
+| `READONLY_MODE` | 未设置（回落 `DEBUG`） | `true` = 只读/演示模式，禁止写操作 |
 | `APP_NAME` | `nextjs-server` | 应用名称 |
 | `APP_PORT` | `3000` | HTTP 端口 |
 | `DB_HOST` / `DB_PORT` | `127.0.0.1` / `3306` | MySQL 连接 |
@@ -566,12 +569,17 @@ pnpm run prod
 - [v] **ADMIN_PASSWORD**：修改默认管理员密码
 - [v] **DB_SYNC=false**：禁止自动同步表结构
 - [v] **DB_LOGGING=false**：关闭 SQL 日志
-- [v] **DEBUG=false**：生产环境开启只读模式
+- [v] **READONLY_MODE**：只读/演示环境设 `true`，正常业务设 `false`（显式声明以解除对 `DEBUG` 的兼容依赖）
+- [v] **DEBUG=false**：生产关闭调试模式（日志收敛到 `LOG_PROD_LEVEL`，自动堆快照默认关）
 - [v] **Redis 密码**：设置 `REDIS_PASSWORD`
 - [v] **CORS 配置**：设置 `CORS_MODE=list` + `CORS_ORIGINS`
 - [v] **文件存储**：配置 `FILE_DOMAIN` 为可访问域名
 - [v] **日志保留**：按需调整 `LOG_RETENTION_DAYS`
-- [v] **内存限制**：检查 `MEMORY_RSS_WARN_MB` / `MEMORY_RSS_FATAL_MB`
+- [v] **日志级别**：确认 `LOG_PROD_LEVEL=warn`，避免生产写入 info/debug 日志
+- [v] **堆快照**：确认 `MEMORY_DUMP_ENABLED=false`（`.env.production` 已显式声明）
+- [v] **内存限制**：检查 `MEMORY_RSS_WARN_MB` / `MEMORY_RSS_FATAL_MB`，需低于 PM2 的 `max_memory_restart`
+- [v] **Bun 内存监控**：确认 `MEMORY_BUN_MONITOR_ENABLED` 取值符合预期（默认 `false` 表示 Bun 下不做阈值判定）
+- [v] **PM2 环境**：用 `--env production` 启动、改 env 后 `--update-env` 重启
 - [ ] **备份策略**：配置数据备份计划
 
 ---
@@ -585,22 +593,31 @@ module.exports = {
   apps: [{
     name: 'nextjs-server',
     script: './dist/main.js',
+    interpreter: 'bun',        // 运行时固化在配置内，无需 CLI 传参
     instances: 1,
     exec_mode: 'fork',
+    env: {
+      NODE_ENV: 'production',  // 始终注入，避免忘带 --env 时回落到 .env.development
+    },
     env_production: {
       NODE_ENV: 'production',
-      NODE_OPTIONS: '--max-old-space-size=400',
+      // NODE_OPTIONS 仅 node 解释器有效（Bun 非 V8）；如需用 Node 运行再打开
+      // NODE_OPTIONS: '--max-old-space-size=650',
     },
-    max_memory_restart: '400M',
+    max_memory_restart: '700M',  // PM2 按 RSS 强制重启的最终护栏
     // ... 自动重启、日志、优雅关闭等配置
   }],
 };
 ```
 
+> **内存阈值层次**：应用侧 `MEMORY_RSS_WARN_MB(500) < MEMORY_RSS_FATAL_MB(650) < max_memory_restart(700M)`。
+> 若 `max_memory_restart` 低于应用告警阈值（例如 400M），进程会长期处于"已超告警阈值"状态，
+> Node 运行时将反复生成堆快照，Bun 运行时则会频繁重启。
+
 ### 常用 PM2 命令
 
 ```bash
-# 启动（使用 pnpm）
+# 启动（前台运行，NODE_ENV 由 cross-env 注入，推荐）
 pnpm run prod
 
 # 重启
@@ -612,12 +629,33 @@ pnpm run prod:stop
 # 查看日志
 pnpm run logs:pm2
 
-# 或直接使用 pm2
-pm2 start ecosystem.config.cjs --interpreter bun
-pm2 restart nextjs-server
+# 或直接使用 pm2（后台守护进程方式）
+pm2 start ecosystem.config.cjs --env production   # 必须带 --env，否则 env_production 不生效
+pm2 restart nextjs-server --update-env            # 改了环境变量后必须加 --update-env
 pm2 stop nextjs-server
 pm2 logs nextjs-server
 pm2 monit              # 监控面板
+```
+
+> `pm2 start`（daemon 模式）不会自动继承当前 shell 的新环境变量；未加 `--update-env` 的重启会沿用旧环境。
+> 缺失 `--env production` 时 `env_production` 块不会注入，应用会去读 `.env.development`（开发配置：debug 级日志、`READONLY_MODE=false`），
+> 这是生产机日志量异常偏大的常见原因。
+
+### 部署排查命令
+
+```bash
+# 确认实际使用的解释器（bun / node）与脚本路径
+pm2 describe nextjs-server
+
+# 确认进程内实际生效的环境变量（区分大小写、确认 NODE_ENV/DEBUG/LOG_*）
+pm2 env 0 | grep -E "NODE_ENV|DEBUG|LOG_|MEMORY_"
+
+# 查看应用启动时打印的内存/日志配置摘要（含堆快照策略）
+pm2 logs nextjs-server --lines 100 | grep -E "内存监控阈值|堆快照策略"
+
+# 磁盘占用排查
+du -sh logs/*                       # 各子目录占用
+ls -lh logs/heapdump | tail         # 最近生成的堆快照
 ```
 
 ### 集群模式
@@ -703,6 +741,8 @@ logs/
 ├── pm2/
 │   ├── error.log
 │   └── out.log
+├── heapdump/
+│   └── heap-<reason>-*.heapsnapshot   # 堆快照（受开关/节流/数量/过期四重保护）
 └── verify/
     └── api-verify-result-*.md    # API 验证报告
 ```
@@ -729,13 +769,163 @@ logs/
 ### 日志配置
 
 ```env
-LOG_LEVEL=info                     # 日志级别
+LOG_LEVEL=info                     # 日志级别（DEBUG=true 时生效）
+LOG_PROD_LEVEL=warn                # DEBUG=false 时生效的最低级别（默认 warn）
 LOG_CONSOLE_ENABLED=true           # 控制台输出
-LOG_FILE_ENABLED=true              # 文件输出
+LOG_FILE_ENABLED=true              # 文件输出（设为 false 可彻底关闭文件日志）
 LOG_DIR=logs                       # 日志目录
 LOG_MAX_FILE_SIZE_MB=20            # 单文件最大（MB）
 LOG_RETENTION_DAYS=30              # 保留天数
 LOG_HEALTH_LOG_ENABLED=false       # 健康检查日志
+```
+
+### 日志级别收敛（DEBUG 调试模式）
+
+`DEBUG` 是**调试模式**开关，只负责日志级别与自动堆快照默认值，**与写权限无关**。为避免生产环境 debug 日志灌满磁盘，日志级别按调试模式自动收敛：
+
+| DEBUG | 实际生效级别 | 说明 |
+|-------|-------------|------|
+| `true` | `LOG_LEVEL` | 开发/排障，全量输出 |
+| `false` | `LOG_PROD_LEVEL`（默认 `warn`） | 只落 `fatal/error/warn`，仍写文件便于排障 |
+
+需要生产环境恢复全量日志时设置 `LOG_PROD_LEVEL=info`；需要彻底关闭文件日志则设 `LOG_FILE_ENABLED=false`。
+
+## 只读 / 演示模式
+
+只读模式由 `READONLY_MODE` 独立控制，与 `DEBUG` 完全解耦：
+
+| 变量 | 取值 | 效果 |
+|------|------|------|
+| `READONLY_MODE` | `true` | 禁止 `POST/PUT/DELETE/PATCH`，仅放行 `GET/HEAD/OPTIONS` 及白名单接口 |
+| `READONLY_MODE` | `false` | 正常可读写 |
+| `READONLY_MODE` | 未设置 | 兼容回落：`DEBUG=false` → 只读（升级不会意外放开写权限） |
+
+- 白名单定义在 `configuration.ts` 的 `perm.router.whitelist`（登录、验证码、导出等必要写接口）；
+- 拦截实现为 `ReadonlyModeGuard`（全局守卫），拒绝时返回 `系统当前为只读模式，禁止写操作`；
+- 只读模式下数据库管理接口也会被拒绝（`DatabaseController#checkReadonly`）；
+- 未显式配置 `READONLY_MODE` 时，启动日志会打印迁移告警，提示解除对 `DEBUG` 的兼容依赖。
+
+### 配置迁移对照
+
+| 迁移前 | 迁移后 | 结果 |
+|--------|--------|------|
+| `DEBUG=false` | `READONLY_MODE=true` + `DEBUG=false` | 只读 + 日志只落 error/warn（与旧行为一致） |
+| `DEBUG=true` | `READONLY_MODE=false` + `DEBUG=true` | 可写 + 全量日志 |
+| — | `READONLY_MODE=false` + `DEBUG=false` | 可写 + 日志只落 error/warn（旧语义下无法实现） |
+
+## 内存与堆快照
+
+### 堆快照（heapdump）保护
+
+内存超过阈值时由 `MemoryMonitorService` 生成 `.heapsnapshot`（单个可达数百 MB），历史上无任何约束，容易占满磁盘。现在有四重保护：
+
+| 配置 | 默认值 | 说明 |
+|------|-------|------|
+| `MEMORY_DUMP_ENABLED` | 跟随 `DEBUG` | 自动快照总开关；`DEBUG=false` 时默认关闭，仅保留超阈值告警日志 |
+| `MEMORY_DUMP_MAX_FILES` | `3` | 目录内最多保留的快照数量（0 = 不限制） |
+| `MEMORY_DUMP_RETENTION_DAYS` | `1` | 快照过期天数（0 = 不按时间清理） |
+| `MEMORY_DUMP_MIN_INTERVAL_MS` | `60000` | 同一原因两次自动快照的最小间隔，避免按请求重复 dump |
+
+- 服务**启动时**会执行一次自检清理，立即回收历史快照占用；
+- 手动接口 `POST /api/core/monitor/memory/dump` 不受开关与节流限制，便于主动排查（仍受数量/过期保护）；
+- Bun 运行时默认**不执行**内存检查（`checkMemory()` 与请求级拦截器都会跳过），即不会产生自动快照；
+  Node 运行时才受上述阈值与开关约束，Bun 下真正的内存护栏是 PM2 的 `max_memory_restart`。
+
+### 触发条件与阈值
+
+自动堆快照由 `MemoryMonitorService.checkMemory()` 判定，判定口径为**两个指标的「或」关系**：
+
+| 级别 | 触发条件 | 结果 |
+|------|---------|------|
+| 警告 | `RSS ≥ MEMORY_RSS_WARN_MB` **或**（堆判定启用时）`堆使用率 ≥ MEMORY_HEAP_WARN_PERCENT` | `dumpHeap('warn')` |
+| 致命 | `RSS ≥ MEMORY_RSS_FATAL_MB`（且 RSS 致命判定启用）**或**（堆判定启用时）`堆使用率 ≥ MEMORY_HEAP_FATAL_PERCENT` | `dumpHeap('fatal')`，`MEMORY_FATAL_EXIT=true` 时优雅重启 |
+
+调用来源有两个：定时任务 `task.monitorSystem`（cron 存于 `sys_job` 表）与请求级拦截器
+`MemoryMonitorInterceptor`（内存连续增长 25 次后按请求触发）。
+
+> ⚠️ **堆使用率口径**：`heapUsed / heapTotal`（不是相对堆上限）。Node 下 `heapTotal` 是已申请的堆容量，
+> 快满时会自动扩容，该比值在正常应用里也常处于 60%~90%，容易误触发；排查应以 RSS 为主。
+> **Bun 下该比值完全无效**（实测同一进程内可在 3% ~ 109% 间跳变，`heapUsed` 甚至大于 `heapTotal`），
+> 因此 Bun 下堆判定被强制关闭，只按 RSS 判定。
+
+**默认阈值**
+
+| 变量 | Node | Bun（未开启监控） | Bun（`MEMORY_BUN_MONITOR_ENABLED=true`） |
+|------|------|------------------|------------------------------------------|
+| `MEMORY_RSS_WARN_MB` | 300 | 768 | 1200 |
+| `MEMORY_RSS_FATAL_MB` | 450 | 1536 | 1600 |
+| `MEMORY_HEAP_WARN_PERCENT` | 85 | 85 | 85（不参与判定） |
+| `MEMORY_HEAP_FATAL_PERCENT` | 95 | 95 | 95（不参与判定） |
+| `MEMORY_HEAP_USAGE_ENABLED` | true | false | false |
+| `MEMORY_RSS_FATAL_ENABLED` | true | false | true |
+
+显式设置的环境变量始终优先于上表默认值。
+
+### Bun 下启用内存监控
+
+`MEMORY_BUN_MONITOR_ENABLED`（默认 `false`）控制 Bun 运行时是否参与内存检查，因为 Bun 使用
+JavaScriptCore，内存口径与 V8 不同（基线 RSS 更高、堆统计口径无效），默认关闭以避免误判与误 dump。
+
+开启后 Bun 会按 **RSS** 阈值告警/抓快照/（可选）退出，默认 RSS 阈值放宽为 `1200 / 1600` MB。注意：
+
+- `MEMORY_HEAP_USAGE_ENABLED` 在 Bun 下默认为 `false`，**不建议开启**：Bun 的 `heapUsed/heapTotal`
+  比值不可信（实测可在 3%~109% 间跳变），开启后会立刻恒定命中致命阈值，每次检查都生成堆快照；
+- 若同时设置 `MEMORY_FATAL_EXIT=true`，应用致命阈值应 **小于** PM2 的 `max_memory_restart`，
+  否则 PM2 会先重启，应用侧阈值永远无法触发（例如 PM2 设 700M 时，Bun 默认的 1600 无意义）；
+- `MEMORY_RSS_FATAL_ENABLED=false` 可单独关闭 Bun 的 RSS 致命判定，只保留告警与快照。
+
+### 内存占用为什么高于 Go / PHP
+
+同样的后台系统，NestJS 进程常驻内存通常明显高于 Go 或 PHP 实现，**大部分属于运行时基线而非泄漏**：
+
+| 因素 | 说明 |
+|------|------|
+| 运行时基线 | V8/JSC 需要常驻堆 + JIT 代码空间 + 内建对象，空载进程就有几十到上百 MB |
+| RSS 只升不降 | GC 回收的是堆内对象，**很少把内存归还操作系统**，因此 RSS 呈"阶梯上升不回落" |
+| 外部内存 | 每个 `Buffer`/`ArrayBuffer` 走堆外内存（计入 `external`/`arrayBuffers`），大文件、压缩、加解密都会推高该项 |
+| 长驻单进程 | 一个进程长期复用连接池（MySQL/Redis/HTTP）、模块单例与缓存；而 PHP-FPM 是"每请求进程、请求结束整个内存被回收" |
+| 对象与框架开销 | 装饰器元数据、TypeORM 实体元数据、class-transformer、Swagger 文档模型等长期驻留 |
+| 语言差异 | Go 的 GC 会按需把内存还给 OS，对象头与字符串表示更紧凑，且没有 JIT 元数据 |
+
+因此**不要用 Go/PHP 的绝对值做对比**，应关注"是否单调增长"以及"增长是否与请求量/数据量相关"。
+
+#### 用监控端点区分基线占用与真实泄漏
+
+`GET /api/core/monitor/memory/info` 返回的各字段含义：
+
+| 字段 | 含义 | 判定要点 |
+|------|------|---------|
+| `rss` | 进程常驻内存（含堆外） | **最贴近运维视角**；长时间平稳或随 GC 波动属正常 |
+| `heapUsed` / `heapTotal` | 堆已用 / 堆容量 | Node 下波动正常；Bun 下**比值不可信**（见上文） |
+| `external` / `arrayBuffers` | 堆外内存（Buffer 等） | 持续增长多为未释放的流/大 Buffer |
+| `heapLive` | 堆中存活对象（`used_heap_size`） | 多次强制 GC 后仍持续增长 → 大概率真实泄漏 |
+
+排查建议：
+
+1. 同一负载下**每隔 10~30 分钟**记录一次 `rss` 与 `heapLive`，画趋势；
+2. `rss` 阶梯上升但 `heapLive` 平稳 → 多为外部内存或内存未归还 OS，先看 `external`/`arrayBuffers`；
+3. 两者同步单调增长且不被 GC 拉回 → 真实泄漏，按"全局缓存 / 监听器 / 定时器 / 闭包 / 未关闭资源"五类模式排查（本项目已完成一轮专项治理：在途流登记表加容量上限、分片合并写入流正确收尾、上传改磁盘落盘、日志查询与导出改流式、补齐各 `OnModuleDestroy` 清理）；
+4. 需要现场取证时用 `POST /api/core/monitor/memory/dump` 手动生成快照，并用 Chrome DevTools 装载 `.heapsnapshot` 对比两次快照的 retained size。
+
+### 历史快照一次性清理
+
+代码只清理配置范围内的快照，磁盘上已堆积的历史文件需手动删除一次：
+
+```bash
+# 查看占用与文件列表
+du -sh logs/heapdump && ls -lh logs/heapdump | tail
+
+# 删除全部历史快照（确认不需要后再执行）
+find logs/heapdump -name "*.heapsnapshot" -delete
+
+# 只删除 1 天前的快照
+find logs/heapdump -name "*.heapsnapshot" -mtime +1 -delete
+```
+
+Windows PowerShell 等价命令：
+
+```powershell
+Get-ChildItem logs\heapdump\*.heapsnapshot | Remove-Item
 ```
 
 ---
@@ -937,7 +1127,9 @@ SWAGGER_PASSWORD=swagger123
 - Bun 的 `--watch` 模式热重启速度远快于 Node.js + tsx
 - Bun 的 RSS 基线高于 Node.js，内存监控阈值已自动适配
 - Bun 单文件编译 `build:bun` 和 `bundle:bun` 为实验性功能
-- PM2 生产部署可通过 `--interpreter bun` 使用 Bun
+- PM2 生产部署已在 `ecosystem.config.cjs` 中固化 `interpreter: 'bun'`
+- Bun 非 V8，`NODE_OPTIONS=--max-old-space-size=...` 无效；Bun 下内存护栏是 PM2 的 `max_memory_restart`（按 RSS）
+- Bun 下 `checkMemory()` 会直接跳过（`v8.getHeapStatistics` 不兼容且阻塞），自动堆快照也不会生成
 
 ### Q4: 如何备份数据？
 

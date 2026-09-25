@@ -13,11 +13,11 @@ export class DatabaseController {
     private readonly config: ConfigService,
   ) {}
 
-  /** 非开发模式下禁止远程查看数据结构 */
-  private checkDebug() {
-    const debug = this.config.get<boolean>('app.debug');
-    if (debug === false) {
-      throw new ForbiddenException('非开发模式，禁止远程访问数据结构');
+  /** 只读/演示模式下禁止远程查看与操作数据结构 */
+  private checkReadonly() {
+    const readonly = this.config.get<boolean>('app.readonly');
+    if (readonly === true) {
+      throw new ForbiddenException('只读模式下禁止远程访问数据结构');
     }
   }
 
@@ -39,7 +39,7 @@ export class DatabaseController {
   @RequirePermission('core:database:index')
   @Get('table/detailed')
   async getDetailed(@Query() query: Record<string, any>) {
-    this.checkDebug();
+    this.checkReadonly();
     return this.databaseService.getDetailed(query);
   }
 
@@ -54,7 +54,7 @@ export class DatabaseController {
   @RequirePermission('core:recycle:edit')
   @Post('recycle/destroy')
   async destroy(@Body() body: Record<string, any>) {
-    this.checkDebug();
+    this.checkReadonly();
     return this.databaseService.destroy(body);
   }
 
@@ -62,7 +62,7 @@ export class DatabaseController {
   @RequirePermission('core:recycle:edit')
   @Post('recycle/recovery')
   async recovery(@Body() body: Record<string, any>) {
-    this.checkDebug();
+    this.checkReadonly();
     return this.databaseService.recovery(body);
   }
 
@@ -70,7 +70,7 @@ export class DatabaseController {
   @RequirePermission('core:database:edit')
   @Post('table/optimize')
   async optimize(@Body() body: Record<string, any>) {
-    this.checkDebug();
+    this.checkReadonly();
     return this.databaseService.optimize(body);
   }
 
@@ -78,7 +78,7 @@ export class DatabaseController {
   @RequirePermission('core:database:edit')
   @Post('table/fragment')
   async fragment(@Body() body: Record<string, any>) {
-    this.checkDebug();
+    this.checkReadonly();
     return this.databaseService.fragment(body);
   }
 
@@ -86,7 +86,7 @@ export class DatabaseController {
   @RequirePermission('core:database:index')
   @Get('table/createSql')
   async getCreateSql(@Query() query: Record<string, any>) {
-    this.checkDebug();
+    this.checkReadonly();
     return this.databaseService.getCreateSql(query);
   }
 }

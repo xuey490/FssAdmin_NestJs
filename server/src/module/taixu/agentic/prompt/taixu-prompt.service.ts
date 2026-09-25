@@ -49,7 +49,9 @@ export const AGENT_PATTERN_GENERATE_STAGE: Record<string, string> = {
 @Injectable()
 export class TaixuPromptService {
   private readonly logger = new Logger(TaixuPromptService.name);
+  /** 提示词文件缓存；上限保护：提示词文件数量有限，超限时按插入顺序逐出，避免异常 fileName 造成无界增长 */
   private readonly cache = new Map<string, Record<string, Record<string, string>>>();
+  private readonly maxCacheEntries = 64;
 
   private promptDirs() {
     return [
@@ -76,6 +78,15 @@ export class TaixuPromptService {
     }
     const raw = fs.readFileSync(filePath, 'utf8');
     const parsed = parseYaml(raw) as Record<string, Record<string, string>>;
+
+    // 超限时逐出最早缓存的条目，保证缓存有界
+    while (this.cache.size >= this.maxCacheEntries) {
+      const oldestKey = this.cache.keys().next().value as string | undefined;
+      if (oldestKey === undefined) break;
+      this.cache.delete(oldestKey);
+      this.logger.warn(`提示词缓存超过上限 ${this.maxCacheEntries}，已逐出 ${oldestKey}`);
+    }
+
     this.cache.set(fileName, parsed);
     return parsed;
   }

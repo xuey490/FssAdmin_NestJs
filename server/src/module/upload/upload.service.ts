@@ -1,11 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as iconv from 'iconv-lite';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as crypto from 'crypto';
 import * as mime from 'mime-types';
 
 import { ResultData } from '../../common/utils/result';
@@ -13,9 +12,17 @@ import { generateUUID } from '../../common/utils/index';
 import { UploadEntity } from './entities/upload.entity';
 import { AttachmentCategoryEntity } from './entities/attachment-category.entity';
 import { ChunkFileDto, ChunkMergeFileDto } from './dto/index';
+import { isMergeInProgress, mergeChunksToFile } from './utils/chunk-merge.util';
+import {
+  cleanupStaleTempUploads,
+  cleanupUploadedFile,
+  hashFileByPath,
+  persistUploadedFile,
+} from './utils/disk-upload.util';
 
 @Injectable()
-export class UploadService {
+export class UploadService implements OnModuleInit {
+  private readonly logger = new Logger(UploadService.name);
   private readonly thunkDir = 'thunk';
 
   constructor(
@@ -28,6 +35,16 @@ export class UploadService {
 
   private getUploadDir() {
     return path.resolve(process.cwd(), this.config.get('file.uploadDir') || '../upload');
+  }
+
+  /**
+   * 启动时清理上传临时目录中的陈旧文件（上层中断请求时 Multer 已落盘但未被业务代码感知的文件）。
+   */
+  onModuleInit(): void {
+    const removed = cleanupStaleTempUploads();
+    if (removed > 0) {
+      this.logger.log(`已清理 ${removed} 个陈旧的临时上传文件`);
+    }
   }
 
   /**
@@ -67,10 +84,6 @@ export class UploadService {
     return false;
   }
 
-  private calcFileHash(buffer: Buffer) {
-    return crypto.createHash('md5').update(buffer).digest('hex');
-  }
-
   /**
    * 单文件上传
    * 校验文件大小、扩展名、MIME 类型，保存至本地磁盘并记录上传信息至数据库。
@@ -80,31 +93,40 @@ export class UploadService {
    */
   async singleFileUpload(file: Express.Multer.File) {
     if (!file) throw new BadRequestException('请选择上传文件');
-    const maxSize = Number(this.config.get('file.maxSize') || 10);
-    if (file.size / 1024 / 1024 > maxSize) {
-      throw new BadRequestException(`文件大小不能超过${maxSize}MB`);
-    }
 
-    // 校验文件扩展名
     const allowedExtensions: string[] = this.config.get<string[]>('file.allowedExtensions') || [];
     const originalname = iconv.decode(Buffer.from(file.originalname, 'binary'), 'utf8');
-    const ext = path.extname(originalname).toLowerCase().replace('.', '');
-    if (allowedExtensions.length > 0 && ext && !allowedExtensions.includes(ext)) {
-      throw new BadRequestException(
-        `不支持的文件格式 .${ext}，允许的格式: ${allowedExtensions.join(', ')}`,
-      );
-    }
+    const maxSize = Number(this.config.get('file.maxSize') || 10);
 
-    // 额外校验 MIME 类型（防止伪装扩展名）
-    if (allowedExtensions.length > 0 && file.mimetype && !file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('仅允许上传图片文件');
+    try {
+      if (file.size / 1024 / 1024 > maxSize) {
+        throw new BadRequestException(`文件大小不能超过${maxSize}MB`);
+      }
+
+      // 校验文件扩展名
+      const ext = path.extname(originalname).toLowerCase().replace('.', '');
+      if (allowedExtensions.length > 0 && ext && !allowedExtensions.includes(ext)) {
+        throw new BadRequestException(
+          `不支持的文件格式 .${ext}，允许的格式: ${allowedExtensions.join(', ')}`,
+        );
+      }
+
+      // 额外校验 MIME 类型（防止伪装扩展名）
+      if (allowedExtensions.length > 0 && file.mimetype && !file.mimetype.startsWith('image/')) {
+        throw new BadRequestException('仅允许上传图片文件');
+      }
+    } catch (error) {
+      // 校验失败也要清理已落盘的临时文件，避免临时目录堆积
+      cleanupUploadedFile(file);
+      throw error;
     }
 
     const uploadDir = this.getUploadDir();
     const newFileName = this.getNewFileName(originalname);
     const targetFile = path.join(uploadDir, newFileName);
-    this.mkdirsSync(path.dirname(targetFile));
-    fs.writeFileSync(targetFile, file.buffer);
+
+    // 磁盘落盘 + 流式哈希：不把整份文件读入内存
+    const persisted = await persistUploadedFile(file, targetFile);
 
     const serveRoot = this.config.get('file.serveRoot') || '/profile';
     const fileName = `${serveRoot}/${newFileName}`.replace(/\\/g, '/');
@@ -116,12 +138,12 @@ export class UploadService {
       storageMode: 1,
       originName: originalname,
       objectName: newFileName,
-      hash: this.calcFileHash(file.buffer),
+      hash: persisted.hash,
       mimeType: file.mimetype || 'application/octet-stream',
       storagePath: newFileName,
       suffix: path.extname(newFileName).replace('.', ''),
-      sizeByte: file.size,
-      sizeInfo: this.formatSize(file.size),
+      sizeByte: persisted.sizeBytes,
+      sizeInfo: this.formatSize(persisted.sizeBytes),
       url,
     });
 
@@ -141,9 +163,15 @@ export class UploadService {
       this.mkdirsSync(baseDirPath);
     }
     const chunkFilePath = path.join(baseDirPath, `${body.uploadId}${body.fileName}@${body.index}`);
-    if (!fs.existsSync(chunkFilePath)) {
-      fs.writeFileSync(chunkFilePath, file.buffer);
+
+    if (fs.existsSync(chunkFilePath)) {
+      // 分片已存在：直接丢弃本次上传的临时文件即可
+      cleanupUploadedFile(file);
+      return ResultData.ok();
     }
+
+    // 磁盘落盘：分片内容不进入内存
+    await persistUploadedFile(file, chunkFilePath);
     return ResultData.ok();
   }
 
@@ -162,7 +190,22 @@ export class UploadService {
 
     const newFileName = this.getNewFileName(body.fileName);
     const targetFile = path.join(uploadDir, newFileName);
-    await this.thunkStreamMerge(sourceFilesDir, targetFile);
+
+    if (isMergeInProgress(sourceFilesDir)) {
+      return ResultData.fail(429, '该文件正在合并中，请稍后再试');
+    }
+
+    try {
+      await mergeChunksToFile(sourceFilesDir, targetFile);
+    } catch (error) {
+      const reason = (error as Error)?.message ?? '';
+      this.logger.error(`分片合并失败 uploadId=${body.uploadId}: ${reason}`);
+
+      // 并发重复提交给出可重试提示，其它失败按通用错误返回
+      return reason.includes('正在合并')
+        ? ResultData.fail(429, '该文件正在合并中，请稍后再试')
+        : ResultData.fail(500, '分片合并失败，请重试');
+    }
 
     const serveRoot = this.config.get('file.serveRoot') || '/profile';
     const fileName = `${serveRoot}/${newFileName}`.replace(/\\/g, '/');
@@ -185,56 +228,6 @@ export class UploadService {
     });
 
     return ResultData.ok(data);
-  }
-
-  /**
-   * 流式合并分片文件
-   * 读取临时目录中的所有分片文件，按索引排序后通过流依次写入目标文件。
-   * @param sourceFilesDir - 分片文件所在目录
-   * @param targetFile - 合并后的目标文件路径
-   * @returns Promise，合并完成后 resolve
-   */
-  private async thunkStreamMerge(sourceFilesDir: string, targetFile: string) {
-    const fileList = fs
-      .readdirSync(sourceFilesDir)
-      .filter((file) => fs.lstatSync(path.join(sourceFilesDir, file)).isFile())
-      .sort((a, b) => parseInt(a.split('@')[1]) - parseInt(b.split('@')[1]))
-      .map((name) => ({ name, filePath: path.join(sourceFilesDir, name) }));
-
-    const fileWriteStream = fs.createWriteStream(targetFile);
-    let onResolve: (value?: unknown) => void;
-    const callbackPromise = new Promise((resolve) => {
-      onResolve = resolve;
-    });
-    this.thunkStreamMergeProgress(fileList, fileWriteStream, sourceFilesDir, onResolve!);
-    return callbackPromise;
-  }
-
-  /**
-   * 递归流式合并分片进度
-   * 逐个读取分片文件并 pipe 到目标写入流，合并完成后清理临时目录。
-   * @param fileList - 待合并的分片文件列表
-   * @param fileWriteStream - 目标文件写入流
-   * @param sourceFilesDir - 分片文件所在目录（合并完成后删除）
-   * @param onResolve - 合并完成回调
-   */
-  private thunkStreamMergeProgress(
-    fileList: Array<{ filePath: string }>,
-    fileWriteStream: fs.WriteStream,
-    sourceFilesDir: string,
-    onResolve: () => void,
-  ) {
-    if (!fileList.length) {
-      fs.rmSync(sourceFilesDir, { recursive: true, force: true });
-      onResolve();
-      return;
-    }
-    const { filePath: chunkFilePath } = fileList.shift()!;
-    const currentReadStream = fs.createReadStream(chunkFilePath);
-    currentReadStream.pipe(fileWriteStream, { end: false });
-    currentReadStream.on('end', () => {
-      this.thunkStreamMergeProgress(fileList, fileWriteStream, sourceFilesDir, onResolve);
-    });
   }
 
   /**
@@ -400,7 +393,8 @@ export class UploadService {
     const res = await this.singleFileUpload(file);
     if (res instanceof ResultData) return res;
 
-    const hash = this.calcFileHash(file.buffer);
+    // 已落盘：从磁盘流式计算哈希，不再依赖内存中的 Buffer
+    const hash = await hashFileByPath(path.join(this.getUploadDir(), res.newFileName));
     if (body?.category_id || body?.categoryId) {
       await this.uploadRepo.update(
         { objectName: res.newFileName },

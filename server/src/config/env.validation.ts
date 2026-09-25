@@ -8,8 +8,10 @@ export const envValidationSchema = Joi.object({
     .pattern(/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/)
     .allow('')
     .default(''),
-  // false = 只读模式（DebugGuard 禁止写操作）；true = 正常模式
+  // 调试模式：控制日志级别（LOG_LEVEL / LOG_PROD_LEVEL）与自动堆快照默认值；不再表示只读
   DEBUG: Joi.boolean().truthy('true').falsy('false').default(true),
+  // 只读/演示模式：true = 禁止写操作（白名单除外）；刻意不设默认值，未配置时兼容回落为 DEBUG=false
+  READONLY_MODE: Joi.boolean().truthy('true').falsy('false').optional(),
 
   DB_HOST: Joi.string().required(),
   DB_PORT: Joi.number().port().default(3306),
@@ -50,6 +52,8 @@ export const envValidationSchema = Joi.object({
   FILE_ALLOWED_EXTENSIONS: Joi.string().default('jpg,jpeg,png,gif,webp,bmp'),
 
   LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug').default('info'),
+  /** DEBUG=false 时生效的最低日志级别（默认 warn，只落 fatal/error/warn） */
+  LOG_PROD_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug').default('warn'),
   LOG_DIR: Joi.string().default('logs'),
   LOG_CONSOLE_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
   LOG_FILE_ENABLED: Joi.boolean().truthy('true').falsy('false').default(true),
@@ -57,6 +61,18 @@ export const envValidationSchema = Joi.object({
   LOG_DEPENDENCY_CHECK_INTERVAL_MS: Joi.number().integer().min(1000).default(30000),
   LOG_MAX_FILE_SIZE_MB: Joi.number().min(1).default(20),
   LOG_RETENTION_DAYS: Joi.number().integer().min(1).default(30),
+
+  /** 是否允许自动生成堆快照；不设默认值，未配置时由 DEBUG 推导（DEBUG=false 默认关闭） */
+  MEMORY_DUMP_ENABLED: Joi.boolean().truthy('true').falsy('false').optional(),
+  MEMORY_DUMP_MAX_FILES: Joi.number().integer().min(0).default(3),
+  MEMORY_DUMP_RETENTION_DAYS: Joi.number().integer().min(0).default(1),
+  MEMORY_DUMP_MIN_INTERVAL_MS: Joi.number().integer().min(0).default(60000),
+
+  /** Bun 下是否启用内存监控检查（阈值判定 + 自动堆快照 + RSS 致命判定）；默认关闭 */
+  MEMORY_BUN_MONITOR_ENABLED: Joi.boolean().truthy('true').falsy('false').optional(),
+
+  /** 堆使用率是否参与阈值判定；默认 Node true / Bun false（Bun 口径无效） */
+  MEMORY_HEAP_USAGE_ENABLED: Joi.boolean().truthy('true').falsy('false').optional(),
 
   /** AI 模块 API Key 加密密钥；未设置时回退 JWT_SECRET 派生 */
   AI_ENCRYPTION_KEY: Joi.string().min(32).optional(),

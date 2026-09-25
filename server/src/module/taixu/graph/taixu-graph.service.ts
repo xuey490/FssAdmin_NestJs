@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import neo4j, { Driver } from 'neo4j-driver';
 import { Neo4jGraph } from '@langchain/neo4j';
@@ -7,11 +7,27 @@ import { Document } from '@langchain/core/documents';
 import type { BaseLanguageModel } from '@langchain/core/language_models/base';
 
 @Injectable()
-export class TaixuGraphService {
+export class TaixuGraphService implements OnModuleDestroy {
   private readonly logger = new Logger(TaixuGraphService.name);
   private driver: Driver | null = null;
 
   constructor(private readonly configService: ConfigService) {}
+
+  /**
+   * 模块销毁时关闭 Neo4j 驱动，释放其连接池。
+   */
+  async onModuleDestroy(): Promise<void> {
+    if (!this.driver) return;
+
+    try {
+      await this.driver.close();
+      this.logger.log('Neo4j 驱动已关闭');
+    } catch (error) {
+      this.logger.warn(`关闭 Neo4j 驱动失败: ${(error as Error)?.message}`);
+    } finally {
+      this.driver = null;
+    }
+  }
 
   /**
    * 获取 Neo4j 数据库连接配置。

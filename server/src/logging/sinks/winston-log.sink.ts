@@ -25,7 +25,11 @@ export class WinstonLogSink implements LogSink {
    */
   constructor(private readonly configService: ConfigService) {
     const logDir = this.configService.get<string>('log.dir', 'logs');
-    const logLevel = this.configService.get<string>('log.level', 'info');
+    // 与 AppLoggerService 保持同一套级别：DEBUG=false 时为 log.effectiveLevel（默认 warn）
+    const logLevel = this.configService.get<string>(
+      'log.effectiveLevel',
+      this.configService.get<string>('log.level', 'info'),
+    );
     const maxFileSize = this.configService.get<number>('log.maxFileSizeMb', 20);
     const retentionDays = this.configService.get<number>('log.retentionDays', 30);
     const consoleEnabled = this.configService.get<boolean>('log.consoleEnabled', true);

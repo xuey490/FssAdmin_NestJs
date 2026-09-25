@@ -13,6 +13,7 @@ import { formatDateTime } from '../../../common/utils/index';
 import { streamOpenAiChatCompletions } from '../providers/openai-stream.util';
 import type { LlmStreamChunk, LlmStreamUsage } from '../providers/openai-stream.util';
 import { LlmSemaphoreService } from './llm-semaphore.service';
+import { AiStreamRegistry } from './ai-stream-registry.service';
 import { AiChatSessionEntity } from '../entities/ai-chat-session.entity';
 import { AiChatMessageEntity } from '../entities/ai-chat-message.entity';
 import { AiConfigService } from './ai-config.service';
@@ -32,11 +33,6 @@ export type WsEmitFn = (event: AiWsServerEvent, data: unknown) => void;
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
-  /** ponytail: 单进程内存 AbortController；多 worker 需 Redis pub/sub 扩展 */
-  private readonly activeStreams = new Map<
-    string,
-    { abort: AbortController; sessionUuid: string }
-  >();
 
   constructor(
     @InjectRepository(AiChatSessionEntity)
@@ -45,6 +41,7 @@ export class ChatService {
     private readonly messageRepo: Repository<AiChatMessageEntity>,
     private readonly aiConfigService: AiConfigService,
     private readonly semaphore: LlmSemaphoreService,
+    private readonly streamRegistry: AiStreamRegistry,
     private readonly contextBuilder: ContextBuilderService,
     private readonly sessionSummaryService: SessionSummaryService,
   ) {}
@@ -238,32 +235,7 @@ export class ChatService {
    * @returns 是否成功中止了至少一个流
    */
   abortLocalStream(messageUuid?: string, sessionUuid?: string): boolean {
-    if (messageUuid) {
-      const entry = this.activeStreams.get(messageUuid);
-      if (entry) {
-        entry.abort.abort();
-        this.activeStreams.delete(messageUuid);
-        return true;
-      }
-    }
-    if (sessionUuid) {
-      for (const [uuid, entry] of this.activeStreams) {
-        if (entry.sessionUuid === sessionUuid) {
-          entry.abort.abort();
-          this.activeStreams.delete(uuid);
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  registerStreamAbort(messageUuid: string, sessionUuid: string, abort: AbortController) {
-    this.activeStreams.set(messageUuid, { abort, sessionUuid });
-  }
-
-  unregisterStreamAbort(messageUuid: string) {
-    this.activeStreams.delete(messageUuid);
+    return this.streamRegistry.abort(messageUuid, sessionUuid);
   }
 
   /**
@@ -350,11 +322,16 @@ export class ChatService {
     emit('chat.message_start', startData);
 
     const abort = new AbortController();
-    this.registerStreamAbort(assistantMsg.messageUuid, owned.sessionUuid, abort);
     const startedAt = Date.now();
     let fullContent = '';
 
+    // 先获取并发槽位再登记：acquire 超限会抛错，必须发生在登记之前，
+    // 否则被拒请求会在登记表里残留一个永不释放的条目（历史上导致登记表无界增长）
     this.semaphore.acquire();
+    this.streamRegistry.register(assistantMsg.messageUuid, {
+      abort,
+      sessionUuid: owned.sessionUuid,
+    });
 
     try {
       const built = await this.contextBuilder.buildMessages({
@@ -493,7 +470,7 @@ export class ChatService {
       this.logger.warn(`chat stream failed: ${assistantMsg.errorMessage}`);
     } finally {
       this.semaphore.release();
-      this.unregisterStreamAbort(assistantMsg.messageUuid);
+      this.streamRegistry.unregister(assistantMsg.messageUuid);
     }
   }
 

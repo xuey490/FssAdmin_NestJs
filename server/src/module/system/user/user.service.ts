@@ -114,6 +114,7 @@ export class UserService {
           userId: res.id,
           tenantId,
           isDefault: 0,
+          joinTime: new Date(),
         });
       }
     });

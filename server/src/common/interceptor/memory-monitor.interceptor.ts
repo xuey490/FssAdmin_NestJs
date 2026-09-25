@@ -43,11 +43,11 @@ export class MemoryMonitorInterceptor implements NestInterceptor {
   /**
    * 请求后内存检查逻辑。
    * 比较当前 RSS 与基线的差值，连续增长超过阈值次数时触发告警日志，持续增长时调用完整内存检查。
-   * 内存回落后重置计数并更新基线。Bun 环境下跳过检测。
+   * 内存回落后重置计数并更新基线。是否参与检测由 MemoryMonitorService.isMonitorEnabled() 统一决定
+   * （Bun 默认跳过，需 MEMORY_BUN_MONITOR_ENABLED=true 开启）。
    */
   private checkAfterRequest(url: string) {
-    // Bun 下跳过内存检测：v8 API 不兼容（极慢/不准确），且 Bun 内存管理模型不同
-    if (!!process.versions?.bun || process.execPath.includes('bun')) return;
+    if (!this.memoryMonitor.isMonitorEnabled()) return;
 
     try {
       const currentRss = process.memoryUsage().rss;

@@ -38,7 +38,11 @@ export class AppLoggerService {
   ) {
     this.service = this.configService.get<string>('app.name', 'nextjs-server');
     this.env = this.configService.get<string>('app.env', 'development');
-    this.minLevel = this.configService.get<LogLevel>('log.level', 'info');
+    // 有效最低级别：DEBUG=false 时由 log.effectiveLevel 收敛为 warn，只落 fatal/error/warn
+    this.minLevel = this.configService.get<LogLevel>(
+      'log.effectiveLevel',
+      this.configService.get<LogLevel>('log.level', 'info'),
+    );
     this.sinks = [
       ...(this.configService.get<boolean>('log.consoleEnabled', true) ? [consoleLogSink] : []),
       ...(this.configService.get<boolean>('log.fileEnabled', true) ? [fileLogSink] : []),

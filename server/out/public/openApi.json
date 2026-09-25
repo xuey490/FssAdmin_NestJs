@@ -3127,219 +3127,6 @@
         ]
       }
     },
-    "/api/system/notice/list": {
-      "get": {
-        "operationId": "NoticeController_findAll",
-        "parameters": [
-          {
-            "name": "pageNum",
-            "required": true,
-            "in": "query",
-            "description": "当前分页",
-            "schema": {
-              "default": 1,
-              "type": "number"
-            }
-          },
-          {
-            "name": "pageSize",
-            "required": true,
-            "in": "query",
-            "description": "每页数量",
-            "schema": {
-              "default": 10,
-              "type": "number"
-            }
-          },
-          {
-            "name": "page",
-            "required": false,
-            "in": "query",
-            "description": "当前分页(前端别名 page)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "每页数量(前端别名 limit)",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "params",
-            "required": false,
-            "in": "query",
-            "description": "时间范围",
-            "schema": {
-              "$ref": "#/components/schemas/DateParamsDTO"
-            }
-          },
-          {
-            "name": "orderByColumn",
-            "required": false,
-            "in": "query",
-            "description": "排序字段",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "isAsc",
-            "required": false,
-            "in": "query",
-            "description": "排序规则",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "summary": "公告列表",
-        "tags": [
-          "通知公告"
-        ]
-      }
-    },
-    "/api/system/notice/detail/{id}": {
-      "get": {
-        "operationId": "NoticeController_findOne",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "summary": "公告详情",
-        "tags": [
-          "通知公告"
-        ]
-      }
-    },
-    "/api/system/notice/create": {
-      "post": {
-        "operationId": "NoticeController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateNoticeDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "summary": "创建公告",
-        "tags": [
-          "通知公告"
-        ]
-      }
-    },
-    "/api/system/notice/update/{id}": {
-      "put": {
-        "operationId": "NoticeController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateNoticeDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "summary": "更新公告",
-        "tags": [
-          "通知公告"
-        ]
-      }
-    },
-    "/api/system/notice/delete/{id}": {
-      "delete": {
-        "operationId": "NoticeController_remove",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "summary": "删除公告",
-        "tags": [
-          "通知公告"
-        ]
-      }
-    },
     "/api/system/plugin/list": {
       "get": {
         "operationId": "PluginController_findAll",
@@ -7438,6 +7225,934 @@
           "AI 管理"
         ]
       }
+    },
+    "/api/taixu/common/info": {
+      "get": {
+        "operationId": "TaixuCommonController_info",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuCommon"
+        ]
+      }
+    },
+    "/api/taixu/common/code": {
+      "get": {
+        "operationId": "TaixuCommonController_generateCaptcha",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuCommon"
+        ]
+      }
+    },
+    "/api/taixu/home/current_weather": {
+      "get": {
+        "operationId": "TaixuHomeController_currentWeather",
+        "parameters": [
+          {
+            "name": "cityCode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuHome"
+        ]
+      }
+    },
+    "/api/taixu/home/refresh_statistics": {
+      "get": {
+        "operationId": "TaixuHomeController_refreshStatistics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuHome"
+        ]
+      }
+    },
+    "/api/taixu/user/page": {
+      "get": {
+        "operationId": "TaixuUserController_page",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuUser"
+        ]
+      }
+    },
+    "/api/taixu/user/add": {
+      "post": {
+        "operationId": "TaixuUserController_add",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuUser"
+        ]
+      }
+    },
+    "/api/taixu/user/update": {
+      "post": {
+        "operationId": "TaixuUserController_update",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuUser"
+        ]
+      }
+    },
+    "/api/taixu/user/delete": {
+      "post": {
+        "operationId": "TaixuUserController_remove",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuUser"
+        ]
+      }
+    },
+    "/api/taixu/user/select": {
+      "get": {
+        "operationId": "TaixuUserController_select",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuUser"
+        ]
+      }
+    },
+    "/api/taixu/model/meta": {
+      "get": {
+        "operationId": "TaixuModelController_meta",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModel"
+        ]
+      }
+    },
+    "/api/taixu/model/page": {
+      "get": {
+        "operationId": "TaixuModelController_page",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModel"
+        ]
+      }
+    },
+    "/api/taixu/model/add": {
+      "post": {
+        "operationId": "TaixuModelController_add",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModel"
+        ]
+      }
+    },
+    "/api/taixu/model/update": {
+      "post": {
+        "operationId": "TaixuModelController_update",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModel"
+        ]
+      }
+    },
+    "/api/taixu/model/delete": {
+      "post": {
+        "operationId": "TaixuModelController_remove",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModel"
+        ]
+      }
+    },
+    "/api/taixu/model/list": {
+      "get": {
+        "operationId": "TaixuModelController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModel"
+        ]
+      }
+    },
+    "/api/taixu/setting/list": {
+      "get": {
+        "operationId": "TaixuSettingController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuSetting"
+        ]
+      }
+    },
+    "/api/taixu/setting/detail": {
+      "get": {
+        "operationId": "TaixuSettingController_detail",
+        "parameters": [
+          {
+            "name": "source",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuSetting"
+        ]
+      }
+    },
+    "/api/taixu/setting/save": {
+      "post": {
+        "operationId": "TaixuSettingController_save",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuSettingSaveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuSetting"
+        ]
+      }
+    },
+    "/api/taixu/history/records": {
+      "get": {
+        "operationId": "TaixuHistoryController_historyRecords",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuHistory"
+        ]
+      }
+    },
+    "/api/taixu/history/update": {
+      "post": {
+        "operationId": "TaixuHistoryController_updateHistory",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuHistoryRecordUpdateDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuHistory"
+        ]
+      }
+    },
+    "/api/taixu/history/delete": {
+      "post": {
+        "operationId": "TaixuHistoryController_deleteHistory",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuHistoryRecordDeleteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuHistory"
+        ]
+      }
+    },
+    "/api/taixu/history/update-models": {
+      "post": {
+        "operationId": "TaixuHistoryController_updateModels",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuHistoryRecordUpdateModelsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuHistory"
+        ]
+      }
+    },
+    "/api/taixu/memory/details": {
+      "get": {
+        "operationId": "TaixuHistoryController_memoryDetails",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuHistory"
+        ]
+      }
+    },
+    "/api/taixu/memory/download": {
+      "post": {
+        "operationId": "TaixuHistoryController_downloadMemory",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuMemoryDetailDownloadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuHistory"
+        ]
+      }
+    },
+    "/api/taixu/document/list": {
+      "get": {
+        "operationId": "TaixuDocumentController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/delete": {
+      "post": {
+        "operationId": "TaixuDocumentController_delete",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuDocumentDeleteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/upload": {
+      "post": {
+        "operationId": "TaixuDocumentController_upload",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/index-status": {
+      "get": {
+        "operationId": "TaixuDocumentController_indexStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/queue/status": {
+      "get": {
+        "operationId": "TaixuDocumentController_queueStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/queue/health": {
+      "get": {
+        "operationId": "TaixuDocumentController_queueHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/queue/pause": {
+      "post": {
+        "operationId": "TaixuDocumentController_pauseQueue",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/queue/resume": {
+      "post": {
+        "operationId": "TaixuDocumentController_resumeQueue",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/reindex": {
+      "post": {
+        "operationId": "TaixuDocumentController_reindex",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuDocumentReindexDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/website": {
+      "post": {
+        "operationId": "TaixuDocumentController_website",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuDocumentWebsiteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/preview": {
+      "get": {
+        "operationId": "TaixuDocumentController_preview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/document/download": {
+      "post": {
+        "operationId": "TaixuDocumentController_download",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuDocumentDownloadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuDocument"
+        ]
+      }
+    },
+    "/api/taixu/retrieval/rag": {
+      "post": {
+        "operationId": "TaixuRetrievalController_rag",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuRetrievalInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuRetrieval"
+        ]
+      }
+    },
+    "/api/taixu/retrieval/advance": {
+      "post": {
+        "operationId": "TaixuRetrievalController_advance",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuRetrievalInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuRetrieval"
+        ]
+      }
+    },
+    "/api/taixu/special/rag": {
+      "post": {
+        "operationId": "TaixuRetrievalController_special",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuRetrievalInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuRetrieval"
+        ]
+      }
+    },
+    "/api/taixu/program/retrieve": {
+      "post": {
+        "operationId": "TaixuRetrievalController_program",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuRetrievalInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuRetrieval"
+        ]
+      }
+    },
+    "/api/taixu/arxiv/retrieve": {
+      "post": {
+        "operationId": "TaixuRetrievalController_arxiv",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuRetrievalInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuRetrieval"
+        ]
+      }
+    },
+    "/api/taixu/agent/invoke": {
+      "post": {
+        "operationId": "TaixuAgentController_agent",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuAgentInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuAgent"
+        ]
+      }
+    },
+    "/api/taixu/agentic/invoke": {
+      "post": {
+        "operationId": "TaixuAgentController_agentic",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuAgentInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuAgent"
+        ]
+      }
+    },
+    "/api/taixu/search/invoke": {
+      "post": {
+        "operationId": "TaixuAgentController_search",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuAgentInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuAgent"
+        ]
+      }
+    },
+    "/api/taixu/topic/invoke": {
+      "post": {
+        "operationId": "TaixuAgentController_topic",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuAgentInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuAgent"
+        ]
+      }
+    },
+    "/api/taixu/travel/invoke": {
+      "post": {
+        "operationId": "TaixuAgentController_travel",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuTravelInvokeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuAgent"
+        ]
+      }
+    },
+    "/api/taixu/llm/chat": {
+      "post": {
+        "operationId": "TaixuModalController_chat",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuChatDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModal"
+        ]
+      }
+    },
+    "/api/taixu/image/generate": {
+      "get": {
+        "operationId": "TaixuModalController_generate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModal"
+        ]
+      }
+    },
+    "/llm/chat": {
+      "post": {
+        "operationId": "TaixuModalCompatController_chat",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaixuChatDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModalCompat"
+        ]
+      }
+    },
+    "/image/generate": {
+      "get": {
+        "operationId": "TaixuModalCompatController_generate",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "TaixuModalCompat"
+        ]
+      }
     }
   },
   "info": {
@@ -7992,28 +8707,6 @@
           "status"
         ]
       },
-      "CreateNoticeDto": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "number"
-          },
-          "remark": {
-            "type": "string"
-          }
-        }
-      },
-      "UpdateNoticeDto": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "number"
-          },
-          "remark": {
-            "type": "string"
-          }
-        }
-      },
       "CreatePluginDto": {
         "type": "object",
         "properties": {
@@ -8471,6 +9164,58 @@
         "required": [
           "id"
         ]
+      },
+      "TaixuSettingSaveDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuHistoryRecordUpdateDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuHistoryRecordDeleteDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuHistoryRecordUpdateModelsDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuMemoryDetailDownloadDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuDocumentDeleteDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuDocumentReindexDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuDocumentWebsiteDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuDocumentDownloadDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuRetrievalInvokeDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuAgentInvokeDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuTravelInvokeDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "TaixuChatDto": {
+        "type": "object",
+        "properties": {}
       }
     }
   }

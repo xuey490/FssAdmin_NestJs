@@ -18,6 +18,13 @@ import { UploadService } from './upload.service';
 import { ResultData } from '../../common/utils/result';
 import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import { ChunkFileDto } from './dto/index';
+import { UPLOAD_TEMP_DIR } from './utils/disk-upload.util';
+
+/**
+ * 上传拦截器选项：磁盘落盘到系统临时目录，避免整份文件驻留内存。
+ * 文件由 UploadService 移动到最终上传目录（失败时清理临时文件）。
+ */
+const diskUploadOptions = { dest: UPLOAD_TEMP_DIR };
 
 @ApiTags('文件上传')
 @Controller('api/core/system')
@@ -35,7 +42,7 @@ export class CoreUploadController {
   @ApiOperation({ summary: '上传图片' })
   @HttpCode(200)
   @Post('uploadImage')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', diskUploadOptions))
   async uploadImage(@UploadedFile() file: Express.Multer.File, @Body() body: any) {
     const res = await this.uploadService.singleFileUpload(file);
     const categoryId = Number(body?.category_id ?? body?.categoryId ?? 0);
@@ -48,7 +55,7 @@ export class CoreUploadController {
   @ApiOperation({ summary: '上传文件' })
   @HttpCode(200)
   @Post('uploadFile')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', diskUploadOptions))
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
     const res = await this.uploadService.singleFileUpload(file);
     return ResultData.ok(res);
@@ -57,7 +64,7 @@ export class CoreUploadController {
   @ApiOperation({ summary: '分片上传' })
   @HttpCode(200)
   @Post('chunkUpload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', diskUploadOptions))
   chunkUpload(@UploadedFile() file: Express.Multer.File, @Body() body: ChunkFileDto) {
     return this.uploadService.chunkFileUpload(file, body);
   }
@@ -86,7 +93,7 @@ export class AttachmentController {
   @ApiOperation({ summary: '上传附件' })
   @RequirePermission('core:attachment:edit')
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', diskUploadOptions))
   upload(@UploadedFile() file: Express.Multer.File, @Body() body: any) {
     return this.uploadService.uploadAttachment(file, body);
   }

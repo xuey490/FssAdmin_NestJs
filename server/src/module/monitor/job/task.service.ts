@@ -175,7 +175,7 @@ export class TaskService implements OnModuleInit {
     const info = this.memoryMonitorService.getMemoryInfo();
     const report = this.memoryMonitorService.getMemoryReport();
     this.logger.log(`内存状态: ${report}`);
-    // 执行内存阈值检查（超阈值自动 dump + 重启）
+    // 执行内存阈值检查（超阈值告警；自动 dump/退出受 MEMORY_DUMP_ENABLED、节流与 MEMORY_FATAL_EXIT 约束）
     await this.memoryMonitorService.checkMemory();
   }
 

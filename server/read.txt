@@ -1,0 +1,25 @@
+# 1. 一次性清理历史快照（释放磁盘）
+find logs/heapdump -name "*.heapsnapshot" -delete
+
+# 2. 拉代码后重新构建，然后按新方式重启（--update-env 让 NODE_ENV 生效）
+pm2 restart nextjs-server --update-env
+
+# 3. 确认解释器与环境变量确实生效
+pm2 describe nextjs-server
+pm2 env 0 | grep -E "NODE_ENV|DEBUG|LOG_|MEMORY_"
+
+正确命令
+首次部署 / 进程未注册（本机或服务器）
+
+cd server
+pnpm run build                                  # 必须先产出 dist/main.js
+pm2 start ecosystem.config.cjs --env production # 用 ecosystem 文件启动，不是应用名
+pm2 save                                        # 保存进程列表，便于恢复
+
+
+cd /www/wwwroot/nest-admin
+ls -l .env.production
+pm2 start ecosystem.config.cjs --env production
+pm2 describe nextjs-server | grep -i -E "script path|exec cwd|interpreter"   # exec cwd 应为 /www/wwwroot/nest-admin
+pm2 env 0 | grep -E "NODE_ENV|READONLY_MODE|DEBUG"
+pm2 logs nextjs-server --lines 50 | grep -E "运行模式|调试模式"

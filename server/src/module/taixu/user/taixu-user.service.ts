@@ -137,6 +137,7 @@ export class TaixuUserService {
         userId: saved.id,
         tenantId,
         isDefault: 0,
+        joinTime: new Date(),
       });
       await manager.save(SysUserTenantEntity, link);
 

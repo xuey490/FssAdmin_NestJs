@@ -36,7 +36,10 @@ export class JobService {
     private taskService: TaskService,
     private readonly redisService: RedisService,
   ) {
-    this.initializeJobs();
+    // 构造期异步加载，失败时记录日志避免形成未处理的 Promise rejection
+    this.initializeJobs().catch((error) => {
+      this.logger.error(`初始化定时任务失败: ${(error as any)?.message}`);
+    });
   }
 
   /**
@@ -247,7 +250,20 @@ export class JobService {
     if (!job) {
       throw new NotFoundException('任务不存在');
     }
-    await this.taskService.executeTask(job.invoke_target, job.job_name, job.job_group);
+
+    // 手动执行同样走分布式锁，避免与正在执行的周期任务并发叠加（大任务可能造成内存峰值）
+    const executed = await this.runCronJobWithLock(
+      job.job_name,
+      job.invoke_target,
+      job.concurrent,
+      job.job_group,
+      true,
+    );
+
+    if (!executed) {
+      return ResultData.fail(429, '任务正在执行中，请稍后再试');
+    }
+
     return ResultData.ok();
   }
 
@@ -257,8 +273,20 @@ export class JobService {
 
   /**
    * 集群环境下通过 Redis 锁保证同一 Cron 仅一个 worker 执行
+   * @param name 任务名称
+   * @param invokeTarget 调用目标
+   * @param concurrent 是否禁止并发执行（'1' 禁止）
+   * @param jobGroup 任务分组
+   * @param throwOnError 执行失败时是否向上抛出（手动触发场景需要把错误返回给调用方）
+   * @returns true = 已获取锁并执行（执行失败时已记录日志）；false = 未获取锁被跳过
    */
-  private async runCronJobWithLock(name: string, invokeTarget: string, concurrent: string, jobGroup: string) {
+  private async runCronJobWithLock(
+    name: string,
+    invokeTarget: string,
+    concurrent: string,
+    jobGroup: string,
+    throwOnError = false,
+  ): Promise<boolean> {
     const runningLockKey = `${CacheEnum.CRON_LOCK_KEY}${name}`;
     const tickLockKey = `${CacheEnum.CRON_LOCK_KEY}${name}:tick:${Math.floor(Date.now() / 60000)}`;
     const lockToken = `w${cluster.worker?.id ?? 0}:${process.pid}:${Date.now()}`;
@@ -272,17 +300,25 @@ export class JobService {
       acquired = await this.redisService.tryLock(lockKey, lockToken, lockTtl);
     } catch (error) {
       this.logger.error(`Cron job ${name} 获取分布式锁失败，跳过执行: ${(error as any)?.message}`);
-      return;
+      return false;
     }
 
     if (!acquired) {
       this.logger.debug(`Cron job ${name} 已由其他 worker 执行，W${cluster.worker?.id ?? '?'} 跳过`);
-      return;
+      return false;
     }
 
     try {
       this.logger.log(`Running job ${name} on W${cluster.worker?.id ?? '?'}:${process.pid}`);
       await this.taskService.executeTask(invokeTarget, name, jobGroup);
+      return true;
+    } catch (error) {
+      // 周期任务执行失败只记录日志，避免 void 调用形成未处理的 Promise rejection
+      this.logger.error(`Cron job ${name} 执行失败: ${(error as any)?.message}`);
+      if (throwOnError) {
+        throw error;
+      }
+      return true;
     } finally {
       if (forbidConcurrent) {
         try {

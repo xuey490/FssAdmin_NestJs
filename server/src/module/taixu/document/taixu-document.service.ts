@@ -17,6 +17,7 @@ import { TaixuDocumentIndexTracker } from './document-index-tracker.service';
 import { TaixuDocumentIndexQueueService } from './document-index-queue.service';
 import { extractTextByType } from './utils/document-extractor';
 import { decodeUploadFilename } from './utils/decode-upload-filename.util';
+import { persistUploadedFile } from '../../upload/utils/disk-upload.util';
 import type { DocumentIndexJob } from './document-index.types';
 
 @Injectable()
@@ -169,8 +170,8 @@ export class TaixuDocumentService {
     const fileSizeMb = Math.max(0, Math.floor(file.size / 1024 / 1024));
 
     const saveDir = this.getSaveDir(tenantId);
-    fs.mkdirSync(saveDir, { recursive: true });
-    fs.writeFileSync(path.join(saveDir, filename), file.buffer);
+    // 磁盘落盘：上传拦截器已把文件写入临时目录，这里移动到位，避免整份文件驻留内存
+    await persistUploadedFile(file, path.join(saveDir, filename));
 
     const entity = this.documentRepo.create({
       id: generateUUID(),
@@ -265,11 +266,15 @@ export class TaixuDocumentService {
     await this.documentRepo.delete({ tenantId, id: In(ids) } as any);
   }
 
-  async loadRawFile(documentName: string) {
+  /**
+   * 解析文档在磁盘上的绝对路径（只做路径拼接，不读取内容）。
+   * 下载等只需要路径的场景应使用本方法，避免把大文件整份读入内存。
+   * @param documentName - 文档名称
+   * @returns 文档绝对路径
+   */
+  async resolveDocumentPath(documentName: string): Promise<string> {
     const tenantId = this.requireTenantId();
-    const saveDir = this.getSaveDir(tenantId);
-    const filePath = path.join(saveDir, documentName);
-    return { filePath, buffer: fs.readFileSync(filePath) };
+    return path.join(this.getSaveDir(tenantId), documentName);
   }
 
   /**
@@ -285,8 +290,9 @@ export class TaixuDocumentService {
       const buffer = Buffer.from(res.data);
       return extractTextByType(buffer, 'html');
     }
-    const { buffer } = await this.loadRawFile(documentName);
-    return extractTextByType(buffer, documentType);
+    // 文本抽取需要完整内容，仅此路径读取文件
+    const filePath = await this.resolveDocumentPath(documentName);
+    return extractTextByType(fs.readFileSync(filePath), documentType);
   }
 
   /**

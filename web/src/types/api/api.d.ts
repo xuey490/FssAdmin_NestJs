@@ -61,6 +61,18 @@ declare namespace Api {
       total: number
     }
 
+    /** 本服务标准分页响应结构（后端统一返回 { list, total, page, limit }） */
+    type ApiListPage<T = any> = {
+      /** 当前页数据 */
+      list: T[]
+      /** 总条数 */
+      total: number
+      /** 当前页码 */
+      page?: number
+      /** 每页条数 */
+      limit?: number
+    }
+
     /** 分页响应基础结构 */
     interface PaginatedResponse<T = any> {
       records: T[]

@@ -11,10 +11,8 @@ import { RedisModule } from './redis/redis.module';
 import { LoggingModule } from './logging/logging.module';
 import { HealthModule } from './modules/health/health.module';
 
-
 import { DemoKitModule } from './modules/demo-kit/demo-kit.module';
 import { DemoKitTestModule } from './modules/demo-kit-test/demo-kit-test.module';
-
 
 import { ApiVerifierModule } from './api-verifier/api-verifier.module';
 import { CommonModule } from './module/common/common.module';
@@ -26,7 +24,7 @@ import { ArticleModule } from './module/article/article.module';
 import { AiModule } from './module/ai/ai.module';
 import { TaixuModule } from './module/taixu/taixu.module';
 
-import { DebugGuard } from './common/guards/debug.guard';
+import { ReadonlyModeGuard } from './common/guards/readonly-mode.guard';
 import { JwtAuthGuard } from './common/guards/auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionGuard } from './common/guards/permission.guard';
@@ -91,7 +89,7 @@ const nodeEnv = process.env.NODE_ENV ?? 'development';
     RedisModule,
     LoggingModule,
     HealthModule,
-    
+
     DemoKitTestModule,
     ApiVerifierModule,
 
@@ -107,7 +105,7 @@ const nodeEnv = process.env.NODE_ENV ?? 'development';
   providers: [
     SensitiveWordService,
     { provide: APP_INTERCEPTOR, useClass: GlobalSecurityInterceptor },
-    { provide: APP_GUARD, useClass: DebugGuard },
+    { provide: APP_GUARD, useClass: ReadonlyModeGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },

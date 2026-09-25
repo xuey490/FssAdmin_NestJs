@@ -1,7 +1,10 @@
+import { Logger } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import type { Response } from 'express-serve-static-core';
 
 import { StatusEnum, SexEnum, DelFlagEnum } from '../enum/index';
+
+const logger = new Logger('ExportTable');
 
 export const commonExportMap: Record<string, Record<string, string>> = {
   status: {
@@ -25,6 +28,8 @@ export const commonExportMap: Record<string, Record<string, string>> = {
  * @param options.header - 表头列定义，每项包含 title/header、dataIndex/key、width、formateStr
  * @param options.dictMap - 字段值到显示文本的映射字典（如状态、性别枚举）
  * @param options.sheetName - 工作表名称，默认为 "Sheet1"
+ * @param options.mode - 写出方式：`stream`（默认，ZipWriter 直接 pipe 到响应，峰值内存与单块相关）
+ *                       或 `buffer`（先序列化整份工作簿再写出，兼容需要完整 Buffer 的场景）
  * @param res - Express 响应对象，用于输出文件流
  */
 export async function ExportTable(
@@ -40,6 +45,7 @@ export async function ExportTable(
     }>;
     dictMap?: any;
     sheetName?: string;
+    mode?: 'stream' | 'buffer';
   },
   res: Response,
 ) {
@@ -105,10 +111,27 @@ export async function ExportTable(
     column.alignment = { vertical: 'middle', horizontal: 'center' };
   });
 
-  const buffer = await workbook.xlsx.writeBuffer();
+  // 响应头必须在写入前设置：流式写出时数据会立刻开始发送
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   res.setHeader('Content-Disposition', 'attachment;filename=sheet.xlsx');
   res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.end(buffer, 'binary');
+
+  // 默认流式写出：ZipWriter 直接 pipe 到响应，避免整份工作簿及其 Buffer 同时驻留堆内存
+  if ((options.mode ?? 'stream') === 'buffer') {
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.end(buffer, 'binary');
+    return;
+  }
+
+  try {
+    await workbook.xlsx.write(res);
+  } catch (error) {
+    // 响应头已发出，无法再返回结构化错误；记录日志并结束响应，避免调用方未 await 时形成未处理 rejection
+    logger.error(`流式导出失败: ${(error as Error)?.message}`);
+  } finally {
+    if (!res.writableEnded) {
+      res.end();
+    }
+  }
 }

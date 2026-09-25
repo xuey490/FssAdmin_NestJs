@@ -8,6 +8,7 @@ import { ChatService } from './services/chat.service';
 import { AiConfigService } from './services/ai-config.service';
 import { AiAdminService } from './services/ai-admin.service';
 import { LlmSemaphoreService } from './services/llm-semaphore.service';
+import { AiStreamRegistry } from './services/ai-stream-registry.service';
 import { AiStreamStopService } from './services/ai-stream-stop.service';
 import { ContextBuilderService } from './services/context-builder.service';
 import { SessionSummaryService } from './services/session-summary.service';
@@ -34,6 +35,7 @@ import {
     AiConfigService,
     AiAdminService,
     LlmSemaphoreService,
+    AiStreamRegistry,
     ContextBuilderService,
     SessionSummaryService,
     ChatService,

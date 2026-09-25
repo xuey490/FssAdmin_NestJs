@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import { QdrantVectorStore } from '@langchain/qdrant';
@@ -10,7 +10,10 @@ import { normalizeTaixuDistance } from '../llm/taixu-llm-config.util';
 type QdrantDistance = 'Cosine' | 'Euclid' | 'Dot';
 
 @Injectable()
-export class TaixuVectorService {
+export class TaixuVectorService implements OnModuleDestroy {
+  /** Qdrant 客户端惰性单例：避免每次访问都新建实例（各自持有独立 HTTP 连接池） */
+  private qdrantClient: QdrantClient | null = null;
+
   constructor(
     private readonly configService: ConfigService,
     private readonly llmService: TaixuLlmService,
@@ -18,15 +21,29 @@ export class TaixuVectorService {
   ) {}
 
   /**
-   * 获取 Qdrant 客户端实例。
+   * 获取 Qdrant 客户端实例（惰性单例）。
    * 从配置中读取 Qdrant URL 和超时时间，若未配置 URL 则返回 null。
    * @returns Qdrant 客户端实例或 null
    */
   private get client() {
+    if (this.qdrantClient) {
+      return this.qdrantClient;
+    }
+
     const url = this.configService.get<string>('taixu.qdrant.url') || '';
     if (!url) return null;
+
     const timeout = Number(this.configService.get<number>('taixu.qdrant.timeout') ?? 30);
-    return new QdrantClient({ url, timeout: timeout * 1000 });
+    this.qdrantClient = new QdrantClient({ url, timeout: timeout * 1000 });
+    return this.qdrantClient;
+  }
+
+  /**
+   * 模块销毁时释放客户端引用。
+   * @qdrant/js-client-rest 为 REST 客户端（无显式 close API），释放引用即可随进程回收。
+   */
+  onModuleDestroy(): void {
+    this.qdrantClient = null;
   }
 
   /**

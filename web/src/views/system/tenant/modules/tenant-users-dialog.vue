@@ -197,8 +197,9 @@
         limit: boundPagination.limit,
         ...boundSearch
       })
-      boundRows.value = res.data || []
-      boundPagination.total = Number(res.total || 0)
+      // 接口返回结构为 { list, total, page, limit }（request 已解包 data 外层）
+      boundRows.value = res?.list ?? []
+      boundPagination.total = Number(res?.total || 0)
     } finally {
       boundLoading.value = false
     }
@@ -213,8 +214,9 @@
         limit: availablePagination.limit,
         ...availableSearch
       })
-      availableRows.value = res.data || []
-      availablePagination.total = Number(res.total || 0)
+      // 接口返回结构为 { list, total, page, limit }（request 已解包 data 外层）
+      availableRows.value = res?.list ?? []
+      availablePagination.total = Number(res?.total || 0)
     } finally {
       availableLoading.value = false
     }

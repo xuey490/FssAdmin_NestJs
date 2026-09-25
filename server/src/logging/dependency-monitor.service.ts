@@ -15,6 +15,8 @@ import { AppLoggerService } from './app-logger.service';
 export class DependencyMonitorService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly checkIntervalMs: number;
   private timer?: NodeJS.Timeout;
+  /** 已注册的 Redis 事件监听（保存引用以便销毁时精确移除） */
+  private redisListeners: Array<{ event: string; handler: (...args: any[]) => void }> = [];
   private readonly snapshots: DependencyStatusMap = {
     mysql: { name: 'mysql', status: 'down' },
     redis: { name: 'redis', status: 'down' },
@@ -54,6 +56,14 @@ export class DependencyMonitorService implements OnApplicationBootstrap, OnModul
   onModuleDestroy(): void {
     if (this.timer) {
       clearInterval(this.timer);
+      this.timer = undefined;
+    }
+
+    // 移除注册到共享 Redis 客户端上的监听器，避免应用重建/销毁后监听器常驻
+    if (this.redisListeners.length > 0) {
+      const client = this.redisService.getClient();
+      this.redisListeners.forEach(({ event, handler }) => client.off(event as any, handler as any));
+      this.redisListeners = [];
     }
   }
 
@@ -106,17 +116,25 @@ export class DependencyMonitorService implements OnApplicationBootstrap, OnModul
   private registerRedisEvents(): void {
     const client = this.redisService.getClient();
 
-    client.on('ready', () => this.updateStatus('redis', 'up'));
-    client.on('close', () => this.updateStatus('redis', 'down', 'Redis connection closed'));
-    client.on('end', () => this.updateStatus('redis', 'down', 'Redis connection ended'));
-    client.on('reconnecting', () => {
-      this.logger.warn({
-        category: 'dependency.redis',
-        message: 'Redis 正在重连',
-        source: 'dependency-monitor',
-      });
-    });
-    client.on('error', (error) => this.updateStatus('redis', 'down', this.getErrorMessage(error)));
+    const listeners: Array<[string, (...args: any[]) => void]> = [
+      ['ready', () => this.updateStatus('redis', 'up')],
+      ['close', () => this.updateStatus('redis', 'down', 'Redis connection closed')],
+      ['end', () => this.updateStatus('redis', 'down', 'Redis connection ended')],
+      [
+        'reconnecting',
+        () => {
+          this.logger.warn({
+            category: 'dependency.redis',
+            message: 'Redis 正在重连',
+            source: 'dependency-monitor',
+          });
+        },
+      ],
+      ['error', (error: unknown) => this.updateStatus('redis', 'down', this.getErrorMessage(error))],
+    ];
+
+    listeners.forEach(([event, handler]) => client.on(event as any, handler as any));
+    this.redisListeners = listeners.map(([event, handler]) => ({ event, handler }));
   }
 
   /**

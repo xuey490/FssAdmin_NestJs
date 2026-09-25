@@ -1,6 +1,5 @@
 import * as ExcelJS from 'exceljs';
 import * as mammoth from 'mammoth';
-import { PDFParse } from 'pdf-parse';
 import { htmlToText } from 'html-to-text';
 import JSZip from 'jszip';
 
@@ -57,6 +56,16 @@ export async function extractTextByType(buffer: Buffer, type: string) {
     return buffer.toString('utf8');
   }
   if (t === 'pdf') {
+    // 惰性加载 pdf-parse：其内部的 pdfjs 在 Node 下会尝试加载 @napi-rs/canvas 做 DOM polyfill
+    // （缺该依赖时 pdfjs 在模块顶层 new DOMMatrix() 会直接抛错），延迟到此处可避免
+    // 非 PDF 场景乃至应用启动被这个原生依赖影响
+    let PDFParse: typeof import('pdf-parse').PDFParse;
+    try {
+      ({ PDFParse } = await import('pdf-parse'));
+    } catch (error) {
+      throw new Error(`PDF 解析依赖加载失败（请确认已安装 @napi-rs/canvas）：${(error as Error).message}`);
+    }
+
     const parser = new PDFParse({ data: buffer });
     try {
       const result = await parser.getText();
