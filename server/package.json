@@ -13,25 +13,29 @@
     "dev": "cross-env NODE_ENV=development bun run --watch src/main.ts",
     "dev:debug": "cross-env NODE_ENV=development bun run --inspect --watch src/main.ts",
     "dev:node": "cross-env NODE_ENV=development nest start --watch",
-    "dev:nest": "cross-env NODE_ENV=development nest start --watch",
     "dev:prd": "cross-env NODE_ENV=production bun run --watch src/main.ts",
     "dev:prd:node": "cross-env NODE_ENV=production tsx watch src/main.ts",
     "dev:prd:nest": "cross-env NODE_ENV=production nest start --watch",
+	
     "start": "pnpm run dev",
     "start:test": "cross-env NODE_ENV=test bun run --watch src/main.ts",
     "start:test:nest": "cross-env NODE_ENV=test nest start --watch",
     "start:debug:nest": "nest start --debug --watch",
+	
+	
     "build": "tsc -p tsconfig.build.json",
     "prebuild": "rimraf dist tsconfig.tsbuildinfo",
-    "build:nest": "cross-env NODE_ENV=development nest build",
+    "build:nest": "cross-env NODE_ENV=production nest build",
     "build:prd": "cross-env NODE_ENV=production tsc -p tsconfig.build.json",
-    "build:prd:nest": "cross-env NODE_ENV=production nest build",
+
     "build:bun": "bun build src/main.ts --outdir dist --target bun --minify-whitespace --minify-syntax --external yamlparser --external mysql2 --external winston --external winston-daily-rotate-file --external class-transformer --external @nestjs/microservices --external @nestjs/platform-socket.io --external expo-sqlite --external better-sqlite3 --external sqlite3 --external pg --external pg-native --external pg-query-stream --external oracledb --external mongodb --external react-native-sqlite-storage --external @sap/hana-client --external hdb-pool --external sql.js --external svg-captcha --external pdf-parse --external pdfjs-dist",
     "bundle:bun": "bun build src/main.ts --outdir out --target bun --minify-whitespace --minify-syntax --external class-transformer --external yamlparser --external @nestjs/microservices --external @nestjs/platform-socket.io --external expo-sqlite --external better-sqlite3 --external sqlite3 --external pg --external pg-native --external pg-query-stream --external oracledb --external mongodb --external react-native-sqlite-storage --external @sap/hana-client --external hdb-pool --external sql.js --external svg-captcha --external pdf-parse --external pdfjs-dist && echo 打包完成。运行: bun out/main.js",
+	
+	
     "typecheck": "tsc --noEmit",
-    "start:prod": "cross-env NODE_ENV=production node dist/main.js",
-    "start:prod:bun": "cross-env NODE_ENV=production bun dist/main.js",
+    "start:prod": "cross-env WEB_CONCURRENCY=4 NODE_ENV=production node dist/main.js",
     "start:bundle": "cross-env NODE_ENV=production bun out/main.js",
+	
     "prod": "cross-env NODE_ENV=production pm2-runtime start ecosystem.config.cjs --interpreter bun",
     "prod:pm2": "cross-env NODE_ENV=production pm2 restart ecosystem.config.cjs --interpreter bun",
     "prod:stop": "pm2 stop ecosystem.config.cjs",

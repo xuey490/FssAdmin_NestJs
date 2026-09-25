@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Query, Req, Res } from '@nestjs/common';
+import { Public } from '../../../common/decorators/auth.decorator';
 import type { Request, Response } from 'express';
 import { ResultData } from '../../../common/utils/result';
 import { initTaixuSse, writeTaixuSse } from '../stream/taixu-sse.util';
@@ -29,6 +30,7 @@ export class TaixuModalCompatController {
     }
   }
 
+  @Public()
   @Get('image/generate')
   async generate(@Query() query: TaixuImageGenerateDto) {
     const data = await this.modalService.generateImage(query);

@@ -1,4 +1,4 @@
-import { utils } from '@/utils/utils';
+﻿import { utils } from '../../utils/utils';
 import type { ApiVerifyCliOptions } from '../api-verifier.types';
 
 export const parseVerifyApiArgs = (argv: string[]): ApiVerifyCliOptions => {

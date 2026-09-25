@@ -10,7 +10,7 @@ export class TaixuCommonController {
   @Public()
   @Get('common/info')
   info() {
-    return this.commonService.getInfo();
+    return ResultData.ok(this.commonService.getInfo());
   }
 
   @Public()

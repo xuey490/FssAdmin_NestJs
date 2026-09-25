@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+// 必须排在 ./app.module 之前：先快照原始 NODE_ENV，避免被 .env 文件注入值污染
+import { originalNodeEnv } from './common/utils/startup-env';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
@@ -27,6 +29,44 @@ const SHUTDOWN_TIMEOUT_MS = 3_000;
 
 /** 是否启用集群模式（Windows 不支持集群） */
 const shouldUseCluster = process.platform !== 'win32' && !process.env.NO_CLUSTER;
+
+/** 是否为 Bun 运行时（Bun 会自动加载 .env.local / .env.<NODE_ENV>.local，node 下不会） */
+const isBunRuntime = Boolean((process.versions as { bun?: string }).bun);
+
+interface EnvFileInfo {
+  /** 文件名，如 .env.production */
+  file: string;
+  /** 绝对路径 */
+  fullPath: string;
+}
+
+/**
+ * 应用实际加载的配置文件候选，必须与 AppModule 中 ConfigModule 的
+ * envFilePath: [`.env.${nodeEnv}`, '.env'] 保持一致（相对 cwd，靠前者优先）。
+ * @param nodeEnv 当前运行环境名
+ */
+function envFileCandidates(nodeEnv: string): string[] {
+  return [`.env.${nodeEnv}`, '.env'];
+}
+
+/**
+ * Bun 运行时会额外自动加载的配置文件，优先级高于 envFileCandidates（node 下不读取）。
+ * 生产环境若残留这些文件，会出现"bun 与 node 跑出来的配置不一致"的问题。
+ * @param nodeEnv 当前运行环境名
+ */
+function bunOnlyEnvFileCandidates(nodeEnv: string): string[] {
+  return ['.env.local', `.env.${nodeEnv}.local`];
+}
+
+/**
+ * 按相对 cwd 解析候选配置文件，仅返回真实存在的项（与 dotenv 的解析方式一致）。
+ * @param candidates 候选文件名数组
+ */
+function resolveEnvFiles(candidates: string[]): EnvFileInfo[] {
+  return candidates
+    .map((file) => ({ file, fullPath: path.join(process.cwd(), file) }))
+    .filter((item) => existsSync(item.fullPath));
+}
 
 type CorsMode = 'off' | 'all' | 'open' | 'list';
 
@@ -74,12 +114,41 @@ async function bootstrap(): Promise<void> {
     const readonlySource = configService.get<string>('app.readonlySource', 'READONLY_MODE');
     const debugEnabled = configService.get<boolean>('app.debug', false);
 
+    /** 配置自检统一告警出口：控制台 + 结构化日志双写 */
+    const warnConfig = (message: string) => {
+      fallbackLogger.warn(message);
+      appLogger?.warn({ category: 'system.config', message, source: 'bootstrap' });
+    };
+
     // 未显式配置 READONLY_MODE 时提示迁移（当前只读判定仍依赖 DEBUG 兼容回落）
     if (readonlySource !== 'READONLY_MODE') {
-      const tip =
-        '未配置 READONLY_MODE，只读模式按兼容规则回落为 DEBUG=false 推导；建议显式设置 READONLY_MODE=true/false 解除耦合';
-      fallbackLogger.warn(tip);
-      appLogger?.warn({ category: 'system.config', message: tip, source: 'bootstrap' });
+      warnConfig(
+        '未配置 READONLY_MODE，只读模式按兼容规则回落为 DEBUG=false 推导；建议显式设置 READONLY_MODE=true/false 解除耦合',
+      );
+    }
+
+    // 实际生效的配置文件（与 ConfigModule 一致：相对 cwd 解析，靠前者优先级更高）
+    const envFiles = resolveEnvFiles(envFileCandidates(env));
+    // Bun 额外自动加载的覆盖文件（优先级高于上面两个，node 运行时不读取）
+    const bunEnvFiles = isBunRuntime ? resolveEnvFiles(bunOnlyEnvFileCandidates(env)) : [];
+    const envFilesText = envFiles.length
+      ? envFiles.map((item) => item.file).join(' > ')
+      : '未找到（使用代码默认值 + 进程环境变量）';
+
+    // 环境配置自检：NODE_ENV 缺失 / 生产缺少 .env.production / Bun 额外文件覆盖，都是"配置混乱"的常见来源
+    if (!originalNodeEnv) {
+      warnConfig(
+        `未设置 NODE_ENV，当前按 ${env} 处理，将加载 .env.${env} 与 .env；生产环境请显式设置 NODE_ENV=production`,
+      );
+    } else if (env === 'production' && !existsSync(path.join(process.cwd(), '.env.production'))) {
+      warnConfig(
+        `NODE_ENV=production 但未找到 ${path.join(process.cwd(), '.env.production')}，将只使用 .env 与进程环境变量；请确认配置文件放在启动目录下`,
+      );
+    }
+    if (bunEnvFiles.length) {
+      warnConfig(
+        `Bun 运行时会额外加载 ${bunEnvFiles.map((item) => item.file).join(' > ')}，其优先级高于 ${envFilesText}；如非本意请删除（node 运行时不读取这些文件）`,
+      );
     }
 
     // 信任反向代理，正确获取客户端真实 IP
@@ -140,7 +209,10 @@ async function bootstrap(): Promise<void> {
         req.path.startsWith('/api/') ||
         req.path.startsWith('/profile/') ||
         req.path.startsWith('/public/') ||
-        req.path.startsWith('/api-test/')
+        req.path.startsWith('/api-test/') ||
+        req.path.startsWith('/image/') ||
+        req.path.startsWith('/llm/') ||
+        req.path.startsWith('/ws/')
       ) {
         return next();
       }
@@ -267,6 +339,14 @@ async function bootstrap(): Promise<void> {
       meta: {
         appName,
         env,
+        /** 运行模式来源：进程启动时的 NODE_ENV（显式）或默认值 */
+        nodeEnvSource: originalNodeEnv ? `NODE_ENV=${originalNodeEnv}` : 'default(未设置 NODE_ENV)',
+        /** 实际生效的配置文件（按优先级从高到低） */
+        envFiles: envFiles.map((item) => item.file),
+        /** Bun 额外自动加载并覆盖的配置文件 */
+        bunOnlyEnvFiles: bunEnvFiles.map((item) => item.file),
+        /** 启动工作目录，env 文件与 logs/upload 均相对它解析 */
+        cwd: process.cwd(),
         port,
         displayPrefix,
         readonly: readonlyMode,
@@ -294,6 +374,18 @@ async function bootstrap(): Promise<void> {
         `  运行模式: ${readonlyMode ? '只读(演示) —— 禁止写操作' : '正常(可读写)'}  [来源: ${readonlySource}]`,
         '\n',
         `  调试模式: ${debugEnabled ? '开(日志级别=LOG_LEVEL)' : '关(日志级别=LOG_PROD_LEVEL)'}`,
+        '\n',
+        `  当前配置文件: ${envFilesText}`,
+        '\n',
+        `  配置文件目录: ${process.cwd()}`,
+        ...(bunEnvFiles.length
+          ? [
+              '\n',
+              `  额外配置文件(Bun): ${bunEnvFiles.map((item) => item.file).join(' > ')}  (优先级更高，node 运行时不加载)`,
+            ]
+          : []),
+        '\n',
+        `  当前运行模式: ${env}  [${originalNodeEnv ? `NODE_ENV=${originalNodeEnv}` : '未设置 NODE_ENV，按默认值 development 处理'}]`,
       );
     }
   } catch (error) {

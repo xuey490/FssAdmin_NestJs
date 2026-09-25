@@ -20,6 +20,10 @@ module.exports = {
       interpreter: 'bun',
       instances: 1,
       exec_mode: 'fork',
+	  
+//instances: 4,       // 或 'max'# 指定 4 个工作进程
+//exec_mode: 'cluster',
+	  
       // 始终生效的基础环境变量（与 --env 参数无关）
       env: {
         NODE_ENV: 'production',
