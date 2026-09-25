@@ -124,6 +124,62 @@ describe('mergeChunksToFile', () => {
     ws.dispose();
   });
 
+  it('分片条目在扫描后消失（lstat 抛错）时跳过该项，不影响其它分片', async () => {
+    const ws = createWorkspace();
+    fs.writeFileSync(path.join(ws.sourceDir, 'f@1'), 'A');
+    fs.writeFileSync(path.join(ws.sourceDir, 'f@2'), 'B');
+
+    // 模拟"readdir 之后条目被移除/无权限"的竞态：让 f@2 的 lstat 抛错
+    const realFs = jest.requireActual<typeof import('node:fs')>('node:fs');
+    const originalLstat = realFs.lstatSync;
+    const spy = jest
+      .spyOn(realFs, 'lstatSync')
+      .mockImplementation(((...args: unknown[]) => {
+        if (String(args[0]).endsWith('f@2')) {
+          throw new Error('ENOENT: 条目在扫描后已被移除');
+        }
+        return (originalLstat as (...a: unknown[]) => unknown)(...args);
+      }) as typeof realFs.lstatSync);
+
+    try {
+      const result = await mergeChunksToFile(ws.sourceDir, ws.targetFile);
+
+      expect(result.chunkCount).toBe(1);
+      expect(fs.readFileSync(ws.targetFile, 'utf8')).toBe('A');
+    } finally {
+      spy.mockRestore();
+      ws.dispose();
+    }
+  });
+
+  it('合并失败且半成品清理也失败时，仍然上抛原始错误', async () => {
+    const ws = createWorkspace();
+    fs.writeFileSync(path.join(ws.sourceDir, 'f@1'), 'A');
+    const badTarget = path.join(ws.root, 'missing-dir', 'merged.bin');
+
+    // 让"删除半成品"这一步也失败，覆盖清理失败的兜底 catch
+    const realFs = jest.requireActual<typeof import('node:fs')>('node:fs');
+    const originalRm = realFs.rmSync;
+    const spy = jest
+      .spyOn(realFs, 'rmSync')
+      .mockImplementation(((...args: unknown[]) => {
+        if (String(args[0]) === badTarget) {
+          throw new Error('EACCES: 半成品文件删除失败');
+        }
+        return (originalRm as (...a: unknown[]) => unknown)(...args);
+      }) as typeof realFs.rmSync);
+
+    try {
+      await expect(mergeChunksToFile(ws.sourceDir, badTarget)).rejects.toThrow();
+
+      // 分片仍然保留，便于客户端重试
+      expect(fs.existsSync(path.join(ws.sourceDir, 'f@1'))).toBe(true);
+    } finally {
+      spy.mockRestore();
+      ws.dispose();
+    }
+  });
+
   it('合并完成后不残留文件流句柄', async () => {
     const before = countFileStreamHandles();
     const ws = createWorkspace();

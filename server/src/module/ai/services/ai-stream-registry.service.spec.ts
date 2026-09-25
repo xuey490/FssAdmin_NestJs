@@ -109,4 +109,15 @@ describe('AiStreamRegistry', () => {
 
     expect(registry.size).toBe(0);
   });
+
+  it('上限为非法值时驱逐循环不会死循环（防御性 break 分支）', () => {
+    const registry = createRegistry();
+    // 白盒：把上限改成负数，迫使 while 在登记表被清空后仍然成立，
+    // 从而命中"取不到最早条目则 break"的防御分支（正常上限下不可达）
+    (registry as unknown as { maxEntries: number }).maxEntries = -1;
+
+    registry.register('msg-1', { abort: new AbortController(), sessionUuid: 'session-1' });
+
+    expect(registry.size).toBe(0);
+  });
 });

@@ -48,14 +48,15 @@ export class AiStreamRegistry implements OnModuleDestroy {
     this.entries.set(messageUuid, entry);
 
     while (this.entries.size > this.maxEntries) {
-      const oldestKey = this.entries.keys().next().value as string | undefined;
-      if (oldestKey === undefined) break;
+      // 一次性取出"键 + 条目"，避免二次 get（Map 单线程下同一键必然存在，省掉一个不可达分支）
+      const oldest = this.entries.entries().next().value as [string, StreamAbortEntry] | undefined;
+      if (oldest === undefined) break;
 
-      const evicted = this.entries.get(oldestKey);
+      const [oldestKey, evicted] = oldest;
       this.entries.delete(oldestKey);
       this.logger.warn(
         `在途流登记表超过上限 ${this.maxEntries}，已驱逐最早条目 messageUuid=${oldestKey}` +
-          `${evicted ? ` (session=${evicted.sessionUuid})` : ''}`,
+          ` (session=${evicted.sessionUuid})`,
       );
     }
   }

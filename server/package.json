@@ -47,6 +47,7 @@
     "init:auth:dev": "pnpm run build && pnpm run init:auth",
     "verify:api": "node -r tsconfig-paths/register dist/api-verifier/cli/verify-apis.cli.js",
     "verify:api:dev": "pnpm run build && pnpm run verify:api",
+    
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -190,9 +191,52 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.ts",
+      "!**/*.entity.ts",
+      "!**/dto/**",
+      "!**/entities/**",
+      "!**/*.module.ts",
+      "!**/*.decorator.ts",
+      "!**/*.constant.ts",
+      "!**/index.ts",
+      "!main.ts",
+      "!**/api-verifier/**",
+      "!**/template/**"
     ],
     "coverageDirectory": "../coverage",
+    "coverageReporters": [
+      "text",
+      "text-summary",
+      "lcov",
+      "json-summary"
+    ],
+    "coverageProvider": "v8",
+    "coverageThreshold": {
+      "**/configuration.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "**/ai-stream-registry.service.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "**/chunk-merge.util.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "**/disk-upload.util.ts": {
+        "branches": 95,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      }
+    },
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"
