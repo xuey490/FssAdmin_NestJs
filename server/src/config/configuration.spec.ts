@@ -15,6 +15,31 @@ describe('Configuration', () => {
     expect(config.app.port).toBe(3000);
     expect(config.database.host).toBe('127.0.0.1');
     expect(config.swagger.enabled).toBe(false);
+    // 反向代理默认信任 1 层（与历史行为一致）
+    expect(config.proxy.trust).toBe('1');
+    // OpenAPI 默认导出到 public（保持 /api-test/ 工具可用）
+    expect(config.swagger.openApiExportEnabled).toBe(true);
+    expect(config.swagger.openApiExportDir).toBe('public');
+  });
+
+  it('反向代理信任层数与 OpenAPI 导出目录可由环境变量覆盖', () => {
+    process.env.TRUST_PROXY = 'loopback';
+    process.env.SWAGGER_OPENAPI_EXPORT_DIR = 'temp';
+
+    const config = configuration();
+    expect(config.proxy.trust).toBe('loopback');
+    expect(config.swagger.openApiExportDir).toBe('temp');
+
+    delete process.env.TRUST_PROXY;
+    delete process.env.SWAGGER_OPENAPI_EXPORT_DIR;
+  });
+
+  it('SWAGGER_OPENAPI_EXPORT_ENABLED=false 时关闭导出', () => {
+    process.env.SWAGGER_OPENAPI_EXPORT_ENABLED = 'false';
+
+    expect(configuration().swagger.openApiExportEnabled).toBe(false);
+
+    delete process.env.SWAGGER_OPENAPI_EXPORT_ENABLED;
   });
 
   it('should respect environment variables', () => {

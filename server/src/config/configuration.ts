@@ -111,6 +111,19 @@ export default () => {
         .filter(Boolean),
       credentials: process.env.CORS_CREDENTIALS === 'true',
     },
+    /**
+     * 反向代理信任配置（对应 express 的 trust proxy）。
+     * 决定 -X-Forwarded-For 取第几跳作为客户端真实 IP，配置不当会导致限流/日志拿到代理 IP。
+     */
+    proxy: {
+      /**
+       * 默认 '1'（信任 1 层代理），与历史行为一致；可按部署形态调整：
+       * - 层数：'2'、'3'
+       * - 命名值：'loopback' / 'linklocal' / 'uniquelocal'
+       * - 布尔：'true'（信任全部，仅在网关已完全接管时使用）/ 'false'（不信任）
+       */
+      trust: process.env.TRUST_PROXY ?? '1',
+    },
     swagger: {
       enabled: process.env.SWAGGER_ENABLED === 'true',
       username: process.env.SWAGGER_USERNAME ?? '',
@@ -118,6 +131,14 @@ export default () => {
       title: process.env.SWAGGER_TITLE ?? 'FssAdmin',
       description: process.env.SWAGGER_DESCRIPTION ?? 'FssAdmin API 文档',
       version: process.env.SWAGGER_VERSION ?? '1.0.0',
+      /** 是否导出 OpenAPI JSON（默认导出，保持 /public/openApi.json 既有行为） */
+      openApiExportEnabled: process.env.SWAGGER_OPENAPI_EXPORT_ENABLED !== 'false',
+      /**
+       * OpenAPI JSON 导出目录（相对启动目录）。
+       * 默认 'public'（该目录通过 /public/ 对外静态暴露，且被 /api-test/ 工具加载）；
+       * 若不希望对外暴露 API 结构，可改为非静态目录（如 'temp'），此时需同步调整 api_test_web 的加载路径。
+       */
+      openApiExportDir: process.env.SWAGGER_OPENAPI_EXPORT_DIR ?? 'public',
     },
     file: {
       storage: process.env.FILE_STORAGE ?? 'local',

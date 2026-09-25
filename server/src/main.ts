@@ -16,6 +16,7 @@ import cluster from 'node:cluster';
 import os from 'node:os';
 import path from 'path';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 import { AppModule } from './app.module';
 import { AppLoggerService } from './logging/app-logger.service';
@@ -26,6 +27,19 @@ const MAX_RESTARTS_IN_WINDOW = 10;
 const RESTART_WINDOW_MS = 60_000;
 /** 优雅关闭：等待工作进程退出的超时时间 */
 const SHUTDOWN_TIMEOUT_MS = 3_000;
+/** 请求体大小上限（JSON / urlencoded） */
+const BODY_LIMIT = '20mb';
+/** 静态资源缓存时长（1 年；仅对带 hash 的文件名安全） */
+const STATIC_CACHE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+/** 访问频率限制：窗口 15 分钟、窗口内最多 1000 次 */
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const RATE_LIMIT_MAX = 1_000;
+/** 启动失败后的退出延迟：给异步日志 sink（文件写入）留出落盘时间 */
+const FATAL_EXIT_DELAY_MS = 100;
+/** 生产环境 JWT 密钥的最小长度（自检告警用） */
+const MIN_JWT_SECRET_LENGTH = 32;
+/** 明显的占位式密钥特征（自检告警用，不打印密钥本身） */
+const PLACEHOLDER_SECRET_PATTERN = /change[_-]?me|placeholder|your[_-]?secret|example|123456/i;
 
 /** 是否启用集群模式（Windows 不支持集群） */
 const shouldUseCluster = process.platform !== 'win32' && !process.env.NO_CLUSTER;
@@ -66,6 +80,47 @@ function resolveEnvFiles(candidates: string[]): EnvFileInfo[] {
   return candidates
     .map((file) => ({ file, fullPath: path.join(process.cwd(), file) }))
     .filter((item) => existsSync(item.fullPath));
+}
+
+/**
+ * 计算 SHA-256 摘要。
+ * 用于 Basic Auth 等长比较：摘要固定 32 字节，既能满足 timingSafeEqual 的等长要求，
+ * 又避免"逐字符比较"带来的时序侧信道。
+ * @param value 原始字符串
+ */
+function sha256(value: string): Buffer {
+  return createHash('sha256').update(value, 'utf8').digest();
+}
+
+/**
+ * 解析反向代理信任配置（express 的 trust proxy 支持数字/布尔/命名值三类形态）。
+ * @param value 配置值（来自 TRUST_PROXY，默认 '1'）
+ * @returns 数字层数、布尔值或命名值（'loopback' 等原样返回）
+ */
+function parseTrustProxy(value: string | number): number | boolean | string {
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return 1;
+  }
+
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed);
+  }
+
+  if (trimmed === 'true') {
+    return true;
+  }
+
+  if (trimmed === 'false') {
+    return false;
+  }
+
+  return trimmed;
 }
 
 type CorsMode = 'off' | 'all' | 'open' | 'list';
@@ -151,8 +206,19 @@ async function bootstrap(): Promise<void> {
       );
     }
 
-    // 信任反向代理，正确获取客户端真实 IP
-    app.set('trust proxy', 1);
+    // 生产密钥自检：只告警不阻断，避免影响既有部署；密钥本身不写入日志
+    const jwtSecret = configService.get<string>('jwt.secret', '');
+    if (
+      env === 'production' &&
+      (!jwtSecret || jwtSecret.length < MIN_JWT_SECRET_LENGTH || PLACEHOLDER_SECRET_PATTERN.test(jwtSecret))
+    ) {
+      warnConfig(
+        `生产环境 JWT_SECRET 疑似未设置为强随机值（当前长度 ${jwtSecret.length}，要求 ≥ ${MIN_JWT_SECRET_LENGTH} 位且不含占位符），存在令牌伪造风险`,
+      );
+    }
+
+    // 信任反向代理，正确获取客户端真实 IP（TRUST_PROXY，默认信任 1 层，保持历史行为）
+    app.set('trust proxy', parseTrustProxy(configService.get<string | number>('proxy.trust', 1)));
 
     // Windows 下 SIGTERM/SIGINT 不可用，跳过 shutdown hooks
     if (process.platform !== 'win32') {
@@ -160,8 +226,8 @@ async function bootstrap(): Promise<void> {
     }
 
     // Body 大小限制
-    app.use(express.json({ limit: '20mb' }));
-    app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+    app.use(express.json({ limit: BODY_LIMIT }));
+    app.use(express.urlencoded({ extended: true, limit: BODY_LIMIT }));
 
     // Gzip 压缩（SSE 流式响应不压缩，避免长时间思考阶段被缓冲导致前端断流）
     app.use(
@@ -187,7 +253,7 @@ async function bootstrap(): Promise<void> {
 
     app.useStaticAssets(uploadPath, {
       prefix: serveRoot,
-      maxAge: 86400000 * 365, // 1 年缓存
+      maxAge: STATIC_CACHE_MAX_AGE_MS,
     });
     app.useStaticAssets(path.resolve(process.cwd(), 'public'), {
       prefix: '/public/',
@@ -201,9 +267,13 @@ async function bootstrap(): Promise<void> {
     // 前端 SPA 静态文件根目录（需先构建 web 项目）
     const webDistPath = path.resolve(process.cwd(), '../web/dist');
     app.useStaticAssets(webDistPath, {
-      maxAge: 86400000 * 365, // 1 年缓存（仅对带有 hash 的静态文件生效）
+      // 仅对带 hash 的静态文件安全（index.html 由下方回退逻辑单独处理）
+      maxAge: STATIC_CACHE_MAX_AGE_MS,
     });
     // SPA 路由回退：非 API 路径且非带扩展名的静态文件 => 返回 index.html
+    const indexHtmlPath = path.join(webDistPath, 'index.html');
+    // 启动时判定一次，避免每个 SPA 请求都做同步 stat；未构建前端时直接交给后续 404 处理
+    const hasWebIndex = existsSync(indexHtmlPath);
     app.use((req, res, next) => {
       if (
         req.path.startsWith('/api/') ||
@@ -220,18 +290,22 @@ async function bootstrap(): Promise<void> {
       if (/\.[a-zA-Z0-9]{2,8}$/.test(req.path)) {
         return next();
       }
-      res.sendFile(path.join(webDistPath, 'index.html'), (err: Error) => {
-        if (err) {
+      if (!hasWebIndex) {
+        return next();
+      }
+      res.sendFile(indexHtmlPath, (err: Error) => {
+        // 响应已开始/已结束时不能再改写状态码，避免二次发送头部报错
+        if (err && !res.headersSent) {
           res.status(404).send('Not Found');
         }
       });
     });
 
-    // 访问频率限制：15 分钟内最多 1000 次
+    // 访问频率限制：窗口与上限见顶部常量
     app.use(
       rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 1000,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+        max: RATE_LIMIT_MAX,
       }),
     );
 
@@ -289,17 +363,24 @@ async function bootstrap(): Promise<void> {
 
       // 写入 OpenAPI JSON（仅首个工作进程执行，避免多进程竞态）
       const shouldWriteOpenApi = !shouldUseCluster || (cluster.worker?.id ?? 0) === 1;
-      if (shouldWriteOpenApi) {
-        const publicDir = path.join(process.cwd(), 'public');
-        if (!existsSync(publicDir)) {
-          mkdirSync(publicDir, { recursive: true });
+      const openApiExportEnabled = configService.get<boolean>('swagger.openApiExportEnabled', true);
+      const openApiExportDir = configService.get<string>('swagger.openApiExportDir', 'public');
+      if (shouldWriteOpenApi && openApiExportEnabled) {
+        // 导出目录可配置：默认 public（对外可访问，供 /api-test/ 工具加载）；
+        // 不希望暴露 API 结构时改为非静态目录（如 temp）
+        const exportDir = path.resolve(process.cwd(), openApiExportDir);
+        if (!existsSync(exportDir)) {
+          mkdirSync(exportDir, { recursive: true });
         }
-        writeFileSync(path.join(publicDir, 'openApi.json'), JSON.stringify(document, null, 2));
+        writeFileSync(path.join(exportDir, 'openApi.json'), JSON.stringify(document, null, 2));
       }
 
       // Swagger Basic Auth 保护
       if (swaggerUsername && swaggerPassword) {
         const swaggerPath = `/${displayPrefix}/swagger-ui`;
+        // 预计算期望摘要：等长（32 字节）比较，避免逐字符比较泄露字符与长度信息
+        const expectedUsernameDigest = sha256(swaggerUsername);
+        const expectedPasswordDigest = sha256(swaggerPassword);
         app.use((req, res, next) => {
           if (!req.path.startsWith(swaggerPath)) {
             return next();
@@ -308,8 +389,14 @@ async function bootstrap(): Promise<void> {
           if (authHeader && authHeader.startsWith('Basic ')) {
             const base64 = authHeader.slice(6);
             const decoded = Buffer.from(base64, 'base64').toString('utf-8');
-            const [username, password] = decoded.split(':');
-            if (username === swaggerUsername && password === swaggerPassword) {
+            // 密码允许包含 ':'，只在第一个冒号处切分
+            const separatorIndex = decoded.indexOf(':');
+            const username = separatorIndex === -1 ? decoded : decoded.slice(0, separatorIndex);
+            const password = separatorIndex === -1 ? '' : decoded.slice(separatorIndex + 1);
+            const usernameMatched = timingSafeEqual(sha256(username), expectedUsernameDigest);
+            const passwordMatched = timingSafeEqual(sha256(password), expectedPasswordDigest);
+
+            if (usernameMatched && passwordMatched) {
               return next();
             }
           }
@@ -398,7 +485,8 @@ async function bootstrap(): Promise<void> {
       meta: { error: message },
     });
     fallbackLogger.error(`服务启动失败：${message}`);
-    setTimeout(() => process.exit(1), 100);
+    // 延迟退出：文件日志 sink 是异步写入，立即退出会丢掉上面这条 fatal 记录
+    setTimeout(() => process.exit(1), FATAL_EXIT_DELAY_MS);
   }
 }
 
