@@ -34,8 +34,8 @@ const STATIC_CACHE_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
 /** 访问频率限制：窗口 15 分钟、窗口内最多 1000 次 */
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const RATE_LIMIT_MAX = 1_000;
-/** 启动失败后的退出延迟：给异步日志 sink（文件写入）留出落盘时间 */
-const FATAL_EXIT_DELAY_MS = 100;
+/** 启动失败后等待日志落盘的最长时间（超过即退出，避免启动失败时进程挂住） */
+const FATAL_LOG_FLUSH_TIMEOUT_MS = 500;
 /** 生产环境 JWT 密钥的最小长度（自检告警用） */
 const MIN_JWT_SECRET_LENGTH = 32;
 /** 明显的占位式密钥特征（自检告警用，不打印密钥本身） */
@@ -124,6 +124,34 @@ function parseTrustProxy(value: string | number): number | boolean | string {
 }
 
 type CorsMode = 'off' | 'all' | 'open' | 'list';
+
+/**
+ * 向工作进程发送信号。
+ * 优先使用 cluster 文档化的 `worker.kill()`：它在主进程中会先断开 IPC（停止向该 worker 派发新连接）
+ * 再发送信号，关闭更平滑；Bun 等运行时缺少该方法时回退为直接对子进程发信号。
+ * 所有分支自行兜底，避免在关闭流程中抛出异常导致主进程带未捕获异常退出。
+ * @param worker 目标工作进程
+ * @param signal 信号
+ */
+function signalWorker(worker: cluster.Worker | undefined, signal: NodeJS.Signals): void {
+  if (!worker || worker.isDead?.()) {
+    return;
+  }
+
+  try {
+    if (typeof worker.kill === 'function') {
+      worker.kill(signal);
+    } else {
+      worker.process.kill(signal);
+    }
+  } catch {
+    try {
+      worker.process?.kill(signal);
+    } catch {
+      // 进程可能已退出，忽略
+    }
+  }
+}
 
 function configureCors(app: INestApplication, configService: ConfigService): void {
   const mode = configService.get<CorsMode>('cors.mode', 'off');
@@ -243,7 +271,11 @@ async function bootstrap(): Promise<void> {
     // 设置全局前缀
     app.setGlobalPrefix(globalPrefix);
 
-    // CORS 配置
+    // CORS 配置（生产环境对 all/open 做自检告警：会接受任意来源）
+    const corsMode = configService.get<CorsMode>('cors.mode', 'off');
+    if (env === 'production' && (corsMode === 'all' || corsMode === 'open')) {
+      warnConfig('生产环境 CORS_MODE 为 all/open，将接受任意来源请求，存在跨域数据泄露/CSRF 风险');
+    }
     configureCors(app, configService);
 
     // 静态文件目录
@@ -274,16 +306,14 @@ async function bootstrap(): Promise<void> {
     const indexHtmlPath = path.join(webDistPath, 'index.html');
     // 启动时判定一次，避免每个 SPA 请求都做同步 stat；未构建前端时直接交给后续 404 处理
     const hasWebIndex = existsSync(indexHtmlPath);
+    // 放行前缀：API/业务域 + 静态资源挂载前缀（静态前缀随配置变化，不能写死）
+    const staticAssetPrefixes = [serveRoot, '/public/', '/api-test/']
+      .filter((prefix) => Boolean(prefix) && prefix !== '/')
+      .map((prefix) => (prefix.endsWith('/') ? prefix : `${prefix}/`));
+    const spaBypassPrefixes = ['/api/', ...staticAssetPrefixes, '/image/', '/llm/', '/ws/'];
+
     app.use((req, res, next) => {
-      if (
-        req.path.startsWith('/api/') ||
-        req.path.startsWith('/profile/') ||
-        req.path.startsWith('/public/') ||
-        req.path.startsWith('/api-test/') ||
-        req.path.startsWith('/image/') ||
-        req.path.startsWith('/llm/') ||
-        req.path.startsWith('/ws/')
-      ) {
+      if (spaBypassPrefixes.some((prefix) => req.path.startsWith(prefix))) {
         return next();
       }
       // 带文件扩展名的请求放行（静态文件已由上方 useStaticAssets 处理）
@@ -310,11 +340,30 @@ async function bootstrap(): Promise<void> {
     );
 
     // Web 安全防护
+    const cspEnabled = configService.get<boolean>('security.cspEnabled', false);
     app.use(
       helmet({
         crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
         crossOriginResourcePolicy: false,
-        contentSecurityPolicy: false,
+        // CSP 默认关闭（保持既有行为）：Swagger UI 与 /api-test/ 页面依赖内联脚本/样式，
+        // 误开会导致白屏；SECURITY_CSP_ENABLED=true 时启用下面这套"同源 + 允许内联"的最小策略
+        contentSecurityPolicy: cspEnabled
+          ? {
+              directives: {
+                defaultSrc: ["'self'"],
+                // Swagger UI / api-test 使用内联脚本与样式，去掉 unsafe-inline 需先改造这些页面
+                scriptSrc: ["'self'", "'unsafe-inline'"],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                // 头像/附件可能来自 FILE_DOMAIN，故放行 https: 与 data:/blob:
+                imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+                fontSrc: ["'self'", 'data:'],
+                // AI 对话走 WebSocket（与 HTTP 同端口）
+                connectSrc: ["'self'", 'ws:', 'wss:'],
+                objectSrc: ["'none'"],
+                frameAncestors: ["'self'"],
+              },
+            }
+          : false,
       }),
     );
 
@@ -485,8 +534,13 @@ async function bootstrap(): Promise<void> {
       meta: { error: message },
     });
     fallbackLogger.error(`服务启动失败：${message}`);
-    // 延迟退出：文件日志 sink 是异步写入，立即退出会丢掉上面这条 fatal 记录
-    setTimeout(() => process.exit(1), FATAL_EXIT_DELAY_MS);
+    // 先有界等待日志落盘再退出：文件 sink 是异步写入，直接 process.exit 会丢掉上面的 fatal 记录；
+    // 用超时兜底，避免 sink 异常导致启动失败时进程挂住
+    await Promise.race([
+      appLogger?.flush() ?? Promise.resolve(),
+      new Promise((resolve) => setTimeout(resolve, FATAL_LOG_FLUSH_TIMEOUT_MS)),
+    ]);
+    process.exit(1);
   }
 }
 
@@ -525,21 +579,13 @@ if (shouldUseCluster) {
       }
 
       for (const worker of workers) {
-        try {
-          worker?.process.kill('SIGTERM');
-        } catch {
-          worker?.kill();
-        }
+        signalWorker(worker, 'SIGTERM');
       }
 
       shutdownTimer = setTimeout(() => {
         console.warn(`工作进程未在 ${SHUTDOWN_TIMEOUT_MS / 1000}s 内退出，强制关闭`);
         for (const worker of Object.values(cluster.workers ?? {})) {
-          try {
-            worker?.process.kill('SIGKILL');
-          } catch {
-            worker?.kill();
-          }
+          signalWorker(worker, 'SIGKILL');
         }
         process.exit(1);
       }, SHUTDOWN_TIMEOUT_MS);

@@ -42,6 +42,15 @@ describe('Configuration', () => {
     delete process.env.SWAGGER_OPENAPI_EXPORT_ENABLED;
   });
 
+  it('内容安全策略默认关闭，可由 SECURITY_CSP_ENABLED=true 开启', () => {
+    expect(configuration().security.cspEnabled).toBe(false);
+
+    process.env.SECURITY_CSP_ENABLED = 'true';
+    expect(configuration().security.cspEnabled).toBe(true);
+
+    delete process.env.SECURITY_CSP_ENABLED;
+  });
+
   it('should respect environment variables', () => {
     process.env.APP_NAME = 'test-app';
     process.env.APP_PORT = '4000';

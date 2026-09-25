@@ -230,6 +230,12 @@
         "lines": 100,
         "statements": 100
       },
+      "**/app-logger.service.ts": {
+        "branches": 100,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
       "**/memory-monitor.interceptor.ts": {
         "branches": 100,
         "functions": 100,

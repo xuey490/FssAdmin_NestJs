@@ -21,6 +21,8 @@ export class AppLoggerService {
   private readonly env: string;
   private readonly minLevel: LogLevel;
   private readonly sinks: LogSink[];
+  /** 最近一批日志写入的完成信号（各 sink 的失败已在内部吞掉），供退出前 flush 使用 */
+  private pendingWrites: Promise<void> = Promise.resolve();
 
   /**
    * 初始化应用日志记录器。
@@ -71,6 +73,15 @@ export class AppLoggerService {
   }
 
   /**
+   * 等待最近一次提交的日志写入完成。
+   * 用于进程退出前的落盘：文件 sink 是异步写入，直接 process.exit 会丢日志。
+   * 语义为"等待当前已提交的写入"，且 sink 失败不会向外抛出。
+   */
+  async flush(): Promise<void> {
+    await this.pendingWrites;
+  }
+
+  /**
    * 写入日志记录。
    * 根据日志级别判断是否写入，构造日志记录对象并通过所有已启用的输出通道写入。
    * @param level 日志级别
@@ -94,9 +105,9 @@ export class AppLoggerService {
       meta: options.meta,
     };
 
-    for (const sink of this.sinks) {
-      Promise.resolve(sink.write(record)).catch(() => undefined);
-    }
+    this.pendingWrites = Promise.all(
+      this.sinks.map((sink) => Promise.resolve(sink.write(record)).catch(() => undefined)),
+    ).then(() => undefined);
   }
 
   private shouldWrite(level: LogLevel): boolean {

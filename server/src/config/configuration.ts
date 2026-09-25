@@ -111,6 +111,14 @@ export default () => {
         .filter(Boolean),
       credentials: process.env.CORS_CREDENTIALS === 'true',
     },
+    security: {
+      /**
+       * 是否启用 Content-Security-Policy（默认关闭）。
+       * Swagger UI 与 /api-test/ 页面依赖内联脚本/样式，误开会导致页面白屏，
+       * 因此默认保持既有行为，需要时显式开启并按前端实际情况调整策略。
+       */
+      cspEnabled: process.env.SECURITY_CSP_ENABLED === 'true',
+    },
     /**
      * 反向代理信任配置（对应 express 的 trust proxy）。
      * 决定 -X-Forwarded-For 取第几跳作为客户端真实 IP，配置不当会导致限流/日志拿到代理 IP。
