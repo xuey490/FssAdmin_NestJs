@@ -14,7 +14,6 @@
     "dev:debug": "cross-env NODE_ENV=development bun run --inspect --watch src/main.ts",
     "dev:node": "cross-env NODE_ENV=development nest start --watch",
     "dev:prd": "cross-env NODE_ENV=production bun run --watch src/main.ts",
-    "dev:prd:node": "cross-env NODE_ENV=production tsx watch src/main.ts",
     "dev:prd:nest": "cross-env NODE_ENV=production nest start --watch",
 	
     "start": "pnpm run dev",

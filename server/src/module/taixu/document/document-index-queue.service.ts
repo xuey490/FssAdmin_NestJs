@@ -22,6 +22,8 @@ export class TaixuDocumentIndexQueueService implements OnModuleInit, OnModuleDes
   private paused = false;
   private workerPromise: Promise<void> | null = null;
   private workerClient: Redis | null = null;
+  /** worker 连接建立中（原子守卫）：防止并发 enqueue 重复派生连接 */
+  private spawningWorker = false;
   private lastConsumedAt = 0;
   private lastErrorAt = 0;
   private lastErrorMessage = '';
@@ -128,19 +130,43 @@ export class TaixuDocumentIndexQueueService implements OnModuleInit, OnModuleDes
     }
   }
 
-  /** 建立 worker 连接并启动循环（worker 停止后可重入） */
+  /**
+   * 建立 worker 连接并启动循环（worker 停止后可重入）。
+   *
+   * 用 `spawningWorker` 做原子守卫：建连包含 await，若期间被第二次调用通过守卫，
+   * 后一次会把 `this.workerClient` 覆盖成新连接，导致前一条连接永远得不到 quit
+   * （常驻连接 + 其读缓冲 = 缓慢内存增长）。启动恢复阶段连续入队最容易命中该窗口。
+   */
   private async spawnWorker() {
-    if (this.stop || this.workerPromise) return;
-    const base = this.redisService.getClient();
-    this.workerClient = base.duplicate({ lazyConnect: false });
+    if (this.stop || this.workerPromise || this.spawningWorker) return;
+
+    this.spawningWorker = true;
+    let client: Redis | null = null;
+
     try {
-      const st = String((this.workerClient as any)?.status || '');
-      if (st !== 'ready' && st !== 'connect') await this.workerClient.connect();
+      const base = this.redisService.getClient();
+      client = base.duplicate({ lazyConnect: false });
+      const st = String((client as any)?.status || '');
+      if (st !== 'ready' && st !== 'connect') await client.connect();
+
+      // 建连期间可能已收到停止指令：直接释放该连接，不纳入 worker 管理
+      if (this.stop) {
+        void client.quit().catch(() => undefined);
+        return;
+      }
+
+      this.workerClient = client;
+      this.workerPromise = this.runWorker();
     } catch (e: any) {
       this.logger.error(`worker redis connect failed: ${e?.message}`);
+      // 建连失败同样要关闭刚派生的连接，避免连接与其读缓冲常驻
+      if (client) void client.quit().catch(() => undefined);
       this.workerClient = null;
+      // 保持原有韧性：回退到共享连接继续跑 worker（由循环内的错误重试兜底）
+      if (!this.stop) this.workerPromise = this.runWorker();
+    } finally {
+      this.spawningWorker = false;
     }
-    this.workerPromise = this.runWorker();
   }
 
   /**

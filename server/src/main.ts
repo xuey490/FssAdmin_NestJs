@@ -451,6 +451,8 @@ async function bootstrap(): Promise<void> {
           }
           res.setHeader('WWW-Authenticate', 'Basic realm="Swagger UI", charset="UTF-8"');
           res.status(401).send('需要认证才能访问 Swagger 文档');
+          // 已终结响应，不能再 next()，否则下游会二次写响应触发 ERR_HTTP_HEADERS_SENT
+          return;
         });
       }
 
