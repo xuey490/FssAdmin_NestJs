@@ -9,7 +9,7 @@ import toolConfig from './config';
 import { camelCase, toLower } from 'lodash';
 import { arraysContains, getColumnLength, StringUtils, capitalize } from './utils/index';
 import { index as templateIndex } from './template/index';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import type { UserDto } from '../user/user.decorator';
@@ -647,7 +647,7 @@ export class ToolService {
     res.setHeader('Content-Disposition', `attachment; filename="generate_${now}.zip"`);
     res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
 
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
     archive.on('error', (err) => {
       throw err;
     });
