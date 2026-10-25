@@ -164,7 +164,7 @@ export class CacheService {
         info.value = await this.client.smembers(key);
         break;
       case 'zset':
-        info.value = await this.client.zrange(key, 0, 99);
+        info.value = await this.client.zrange(key, 0, '99');
         break;
       case 'hash':
         info.value = await this.client.hgetall(key);

@@ -335,7 +335,7 @@ async function bootstrap(): Promise<void> {
     app.use(
       rateLimit({
         windowMs: RATE_LIMIT_WINDOW_MS,
-        max: RATE_LIMIT_MAX,
+        limit: RATE_LIMIT_MAX,
       }),
     );
 
