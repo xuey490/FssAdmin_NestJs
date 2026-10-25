@@ -1,11 +1,11 @@
 # FssAdmin (nextjs-server)
 
-> FssAdmin(NestJs)是一款基于**NestJS + TypeScript6 + TypeORM1.0等** 技术栈的全功能企业级后端管理系统，可以运行在node V8 和 Bun 双环境中，集成 RBAC 权限、多租户、AI 对话、知识库 RAG、定时任务、系统监控、API 文档等开箱即用的企业级能力。
+> FssAdmin(NestJs)是一款基于**NestJS + TypeScript6 + TypeORM1.1等** 技术栈的全功能企业级后端管理系统，可以运行在node V8 和 Bun 双环境中，集成 RBAC 权限、多租户、AI 对话、知识库 RAG、定时任务、系统监控、API 文档等开箱即用的企业级能力。
 
-[![Node](https://img.shields.io/badge/Node-%3E%3D20.0.0-brightgreen)](https://nodejs.org)
+[![Node](https://img.shields.io/badge/Node-%3E%3D20.19.0-brightgreen)](https://nodejs.org)
 [![BUN](https://img.shields.io/badge/BUN-%3E%3D1.3.X-brightgreen)](https://bun.sh/)
-[![NestJS](https://img.shields.io/badge/NestJS-11.x-ea2845)](https://nestjs.com)
-[![TypORM](https://img.shields.io/badge/TypeORM-1.0.x-ea2845)](https://typeorm.io/)
+[![NestJS](https://img.shields.io/badge/NestJS-12.x-ea2845)](https://nestjs.com)
+[![TypeORM](https://img.shields.io/badge/TypeORM-1.1.x-ea2845)](https://typeorm.io/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.x-3178c6)](https://www.typescriptlang.org)
 [![MySQL](https://img.shields.io/badge/MySQL-%3E%3D5.7.x-4479a1)](https://www.mysql.com)
 [![Redis](https://img.shields.io/badge/Redis-7.x-dc382d)](https://redis.io)
@@ -40,10 +40,10 @@
 
 | 类别 | 技术 |
 |------|------|
-| **运行时** | Node.js ≥ 20，可选 **Bun** ≥ 1.1 加速开发 |
+| **运行时** | Node.js ≥ 20.19，可选 **Bun** ≥ 1.1 加速开发 |
 | **语言** | TypeScript 6.x（严格模式） |
-| **后端框架** | NestJS 11.x |
-| **数据库** | MySQL 5.7.x + TypeORM 1.0.x |
+| **后端框架** | NestJS 12.x |
+| **数据库** | MySQL 5.7.x + TypeORM 1.1.x |
 | **缓存** | Redis 7.x + ioredis |
 | **AI / LLM** | LangChain + OpenAI / Ollama / 自定义 LLM 供应商 |
 | **向量数据库** | Qdrant（知识库 RAG） |
@@ -385,7 +385,7 @@ server1/
 
 | 依赖 | 版本要求 |
 |------|----------|
-| Node.js | ≥ 20.0.0 |
+| Node.js | ≥ 20.19.0 |
 | pnpm（推荐） | ≥ 9 |
 | Bun（可选） | ≥ 1.1.0 |
 | MySQL | 5.7.x |
