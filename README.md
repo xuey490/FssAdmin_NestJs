@@ -13,6 +13,12 @@
 
 ---
 
+欢迎加入 QQ 交流群：
+
+![QQ 交流群](https://v3.phpframe.org/assets/qqgroup-C2pjhKmS.png)
+
+
+
 ### 演示站点:https://nest.phpframe.org   账号：admin  密码： 123456
 
 ---
