@@ -1,1 +1,13 @@
 web/src/api/module_task/cronjob/job.ts
+
+# 本地工具目录
+.workbuddy/
+.codebuddy/
+
+# 临时校验脚本
+.check-init-sql.ts
+.verify-init-sql.ts
+
+# 含私钥的证书文件，禁止入库
+database/cloud.txt
+
