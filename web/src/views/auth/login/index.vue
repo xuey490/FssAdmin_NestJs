@@ -6,11 +6,7 @@
       <h1 class="title">{{ systemName }}</h1>
     </div>
 
-    <AuthTopBar
-      fixed-to-viewport
-      show-login-layout
-      v-model:login-layout="loginLayout"
-    />
+    <AuthTopBar fixed-to-viewport show-login-layout v-model:login-layout="loginLayout" />
 
     <LoginLeftView class="login-bg" hide-logo :center-mode="loginLayout === 'center'" />
 
@@ -49,7 +45,11 @@
                   :value="tenant.id"
                 >
                   <span>{{ tenant.name }}</span>
-                  <span v-if="tenant.is_default" style="color: var(--el-color-primary); margin-left: 8px;">(默认)</span>
+                  <span
+                    v-if="tenant.is_default"
+                    style="color: var(--el-color-primary); margin-left: 8px"
+                    >(默认)</span
+                  >
                 </ElOption>
               </ElSelect>
             </ElFormItem>
@@ -79,7 +79,6 @@
                   />
                 </template>
               </ElInput>
-             
             </ElFormItem>
 
             <div class="flex-cb mt-2 text-sm">
@@ -115,41 +114,166 @@
     </div>
 
     <ElDialog
-      v-if="homeDebugEnabled"
       v-model="welcomeDialogVisible"
       title="FssAdmin"
-      width="520px"
+      width="750px"
       align-center
       :close-on-click-modal="false"
     >
-      <div class="welcome-dialog">
-        <p class="welcome-dialog__intro">
-          本系统后端是基于NestJS11.x, TypeORM1.x, Nestjs Express等，前端是基于Art Pro Design, Vue3, ElementPlus等技术栈的Saas管理系统。
-		  <br /><br />
-		  如果你感兴趣，下面还有php版本的FssAdmin，一套后台适应多个前端的通用Saas后台管理系统
-        </p>
-        <ul class="welcome-dialog__list">
-          <li>
-            适配 Art Design Pro：
-            <a href="https://v3.phpframe.org" target="_blank" rel="noopener noreferrer">https://v3.phpframe.org</a>
-            <span class="welcome-dialog__tag">（已开源）</span>
-          </li>
-          <li>
-            适配 SoyBeanAdmin：
-            <a href="https://v4.phpframe.org" target="_blank" rel="noopener noreferrer">https://v4.phpframe.org</a>
-            <span class="welcome-dialog__tag">（已开源）</span>
-          </li>
-          <li>
-            适配 Vben5-Ele：
-            <a href="https://v5.phpframe.org" target="_blank" rel="noopener noreferrer">https://v5.phpframe.org</a>
-          </li>
-        </ul>
-        <p class="welcome-dialog__footer">目前php版本FssAdmin基础底座已开源，欢迎 Star：</p>
-        <div class="welcome-dialog__links">
-          <a href="https://gitee.com/fsscms/FssAdmin" target="_blank" rel="noopener noreferrer">Gitee</a>
-          <a href="https://github.com/xuey490/FssAdmin" target="_blank" rel="noopener noreferrer">GitHub</a>
-        </div>
-      </div>
+      <ElTabs v-model="activeTab" class="welcome-dialog-tabs">
+        <ElTabPane label="PHP版本" name="php">
+          <div class="welcome-dialog">
+            <p class="welcome-dialog__intro">
+              FssAdmin PHP 版本，基于自研 Fssphp 框架，一个后台适配多个前端系统。
+            </p>
+            <ul class="welcome-dialog__list">
+              <li>
+                适配 Art Design Pro：
+                <a href="https://v3.phpframe.org" target="_blank" rel="noopener noreferrer"
+                  >https://v3.phpframe.org</a
+                >
+                <span class="welcome-dialog__tag">（本演示，已开源）</span>
+              </li>
+              <li>
+                适配 SoyBeanAdmin：
+                <a href="https://v4.phpframe.org" target="_blank" rel="noopener noreferrer"
+                  >https://v4.phpframe.org</a
+                >
+                <span class="welcome-dialog__tag">（已开源）</span>
+              </li>
+              <li>
+                适配 Vben5-Ele：
+                <a href="https://v5.phpframe.org" target="_blank" rel="noopener noreferrer"
+                  >https://v5.phpframe.org</a
+                >
+              </li>
+            </ul>
+            <p class="welcome-dialog__footer">目前基础底座已开源，欢迎 Star：</p>
+            <div class="welcome-dialog__links">
+              <a href="https://gitee.com/fsscms/FssAdmin" target="_blank" rel="noopener noreferrer"
+                >Gitee</a
+              >
+              <a
+                href="https://github.com/xuey490/FssAdmin"
+                target="_blank"
+                rel="noopener noreferrer"
+                >GitHub</a
+              >
+            </div>
+          </div>
+        </ElTabPane>
+        <ElTabPane label="NestJs版本" name="nestjs">
+          <div class="welcome-dialog">
+            <p class="welcome-dialog__intro">
+              FssAdmin(NestJs)是一款基于NestJS + TypeScript6 + TypeORM1.0等
+              技术栈的全功能企业级后端管理系统。
+            </p>
+            <ul class="welcome-dialog__list">
+              <li>
+                适配 Art Design Pro：
+                <a href="https://nest.phpframe.org" target="_blank" rel="noopener noreferrer"
+                  >https://nest.phpframe.org</a
+                >
+              </li>
+              <li>经测试可以几乎可以无损适配php版本的SoyBeanAdmin，Vben5-Ele的前端</li>
+            </ul>
+            <p class="welcome-dialog__footer">NestJs 版本已开源，欢迎关注：</p>
+            <div class="welcome-dialog__links">
+              <a
+                href="https://gitee.com/FssPHP_Team/fss-admin_nest"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Gitee</a
+              >
+              <a
+                href="https://github.com/xuey490/FssAdmin_NestJs"
+                target="_blank"
+                rel="noopener noreferrer"
+                >GitHub</a
+              >
+            </div>
+          </div>
+        </ElTabPane>
+        <ElTabPane label="Python版本" name="python">
+          <div class="welcome-dialog">
+            <p class="welcome-dialog__intro">
+              FssAdmin Python 版本，基于 FastAPI + SQLAlchemy 异步架构，高性能 Python
+              全栈后台解决方案。
+            </p>
+            <ul class="welcome-dialog__list">
+              <li>
+                适配 Art Design Pro：
+                <a href="https://fast.phpframe.org" target="_blank" rel="noopener noreferrer"
+                  >https://fast.phpframe.org</a
+                >
+              </li>
+            </ul>
+            <p class="welcome-dialog__footer">Python 版本规划中，欢迎关注：</p>
+            <div class="welcome-dialog__links">测试地址暂不可用，期待...</div>
+          </div>
+        </ElTabPane>
+        <ElTabPane label="Golang版本" name="golang">
+          <div class="welcome-dialog">
+            <p class="welcome-dialog__intro">
+              基于 GoFrame 的企业级管理后台 REST API 服务：JWT 鉴权、多租户、Redis
+              缓存、RBAC、定时任务、监控与运维能力等，提供 OpenAPI（/api.json）与 Swagger（/docs）
+            </p>
+            <ul class="welcome-dialog__list">
+              <li>
+                适配 SoyAdmin：
+                <a href="https://gf.phpframe.org" target="_blank" rel="noopener noreferrer"
+                  >https://gf.phpframe.org</a
+                >
+              </li>
+              <li>
+                适配 Art Design Pro：
+                <a href="https://goframe.phpframe.org" target="_blank" rel="noopener noreferrer"
+                  >https://goframe.phpframe.org</a
+                >
+              </li>
+            </ul>
+            <p class="welcome-dialog__footer">Goframe 版本开源中，欢迎关注 &amp; Star：</p>
+            <div class="welcome-dialog__links">
+              <a
+                href="https://gitee.com/fsscms/FssAdmin_goframe"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Gitee</a
+              >
+              <a
+                href="https://github.com/xuey490/FssAdmin_goframe"
+                target="_blank"
+                rel="noopener noreferrer"
+                >GitHub</a
+              >
+            </div>
+          </div>
+        </ElTabPane>
+        <ElTabPane label="Java Spring Boot 4.x" name="java">
+          <div class="welcome-dialog">
+            <p class="welcome-dialog__intro">
+              FssAdmin
+              是一个多租户后台管理系统与应用开发底座。系统将认证、组织架构、菜单权限、审计、文件和消息等基础能力集中提供给业务模块，并支持将部分服务独立部署。
+            </p>
+            <p class="welcome-dialog__footer">技术栈：</p>
+            <ul class="welcome-dialog__list">
+              <li>Java 21、Maven Wrapper</li>
+              <li>Spring Boot 4.1.2 / Spring Framework 7</li>
+              <li>Spring Cloud 2025.1.4、Spring Cloud Alibaba</li>
+            </ul>
+            <p class="welcome-dialog__footer">可以单体启动，也可以微服务启动。</p>
+            <ul class="welcome-dialog__list">
+              <li>
+                在线演示：
+                <a href="https://java.phpframe.org/" target="_blank" rel="noopener noreferrer"
+                  >https://java.phpframe.org/</a
+                >
+              </li>
+              <li> 商业版联系微信：<span class="welcome-dialog__wechat">xdbyvibm6</span> </li>
+            </ul>
+          </div>
+        </ElTabPane>
+      </ElTabs>
       <template #footer>
         <ElButton type="primary" @click="welcomeDialogVisible = false">知道了</ElButton>
       </template>
@@ -214,8 +338,8 @@
   }))
 
   const loading = ref(false)
-  const homeDebugEnabled = import.meta.env.VITE_HOME_DEGBUG === 'true'
   const welcomeDialogVisible = ref(false)
+  const activeTab = ref('java')
   let welcomeDialogTimer: ReturnType<typeof setTimeout> | undefined
 
   const loadSystemName = async () => {
@@ -237,11 +361,10 @@
     if (formData.username) {
       loadTenantList()
     }
-    if (homeDebugEnabled) {
-      welcomeDialogTimer = setTimeout(() => {
-        welcomeDialogVisible.value = true
-      }, 2000)
-    }
+    // 延迟 2 秒直接展示登录弹窗
+    welcomeDialogTimer = setTimeout(() => {
+      welcomeDialogVisible.value = true
+    }, 1000)
   })
 
   onUnmounted(() => {
@@ -251,14 +374,17 @@
   })
 
   // 监听用户名变化，加载租户列表
-  watch(() => formData.username, (newUsername) => {
-    if (newUsername && newUsername.trim()) {
-      loadTenantList()
-    } else {
-      tenantList.value = []
-      formData.tenant_id = undefined
+  watch(
+    () => formData.username,
+    (newUsername) => {
+      if (newUsername && newUsername.trim()) {
+        loadTenantList()
+      } else {
+        tenantList.value = []
+        formData.tenant_id = undefined
+      }
     }
-  })
+  )
 
   // 加载租户列表
   const loadTenantList = async () => {
@@ -270,13 +396,13 @@
       loadingTenants.value = true
       const list = await fetchTenantsByUsername(formData.username.trim())
       tenantList.value = list || []
-      
+
       // 如果只有一个租户，自动选中
       if (tenantList.value.length === 1) {
         formData.tenant_id = tenantList.value[0].id
       } else if (tenantList.value.length > 0) {
         // 如果有默认租户，自动选中
-        const defaultTenant = tenantList.value.find(t => t.is_default)
+        const defaultTenant = tenantList.value.find((t) => t.is_default)
         if (defaultTenant) {
           formData.tenant_id = defaultTenant.id
         }
@@ -434,6 +560,29 @@
           text-decoration: underline;
         }
       }
+    }
+
+    &__wechat {
+      padding: 1px 6px;
+      border-radius: 4px;
+      background-color: var(--el-fill-color-light);
+      color: var(--el-text-color-primary);
+      font-weight: 500;
+      font-family: Consolas, Monaco, monospace;
+      user-select: all;
+    }
+  }
+
+  // 五个 Tab 时压缩左右内边距，避免标签溢出
+  .welcome-dialog-tabs {
+    :deep(.el-tabs__item) {
+      padding: 0 16px;
+    }
+
+    // 内容区限高滚动，避免不同版本内容长短导致弹窗高度跳动
+    :deep(.el-tabs__content) {
+      max-height: 340px;
+      overflow-y: auto;
     }
   }
 </style>
